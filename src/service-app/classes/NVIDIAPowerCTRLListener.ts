@@ -21,6 +21,7 @@ import { SysFsPropertyInteger } from '../../common/classes/SysFsProperties';
 import { execCommandSync } from '../../common/classes/Utils';
 import { DaemonListener } from './DaemonListener';
 import type { TuxedoControlCenterDaemon } from './TuxedoControlCenterDaemon';
+import type { ITccProfile } from '../../common/models/TccProfile';
 
 export class NVIDIAPowerCTRLListener extends DaemonListener {
     private ctgpOffsetPath: string = '/sys/devices/platform/tuxedo_nvidia_power_ctrl/ctgp_offset';
@@ -33,12 +34,12 @@ export class NVIDIAPowerCTRLListener extends DaemonListener {
         this.init();
     }
 
-    public onActiveProfileChanged(): void {
+    public onActiveProfileChanged(profile: ITccProfile): void {
         if (!this.ctgpAvailable) {
             return;
         }
 
-        this.applyActiveProfile();
+        this.applyActiveProfile(profile);
     }
 
     private init(): void {
@@ -48,18 +49,20 @@ export class NVIDIAPowerCTRLListener extends DaemonListener {
 
         this.ctgpOffsetSysfsProp.setFSWatchListener(
             function (event: 'rename' | 'change', _filename: string): void {
-                const ctgpOffset: number =
-                    this.tccd.activeProfile.nvidiaPowerCTRLProfile !== undefined &&
-                    this.tccd.activeProfile.nvidiaPowerCTRLProfile.cTGPOffset !== undefined
-                        ? this.tccd.activeProfile.nvidiaPowerCTRLProfile.cTGPOffset
-                        : 0;
-                if (event === 'change' && this.ctgpOffsetSysfsProp.readValueNT() !== ctgpOffset) {
-                    this.ctgpOffsetSysfsProp.writeValue(ctgpOffset);
+                if (event === 'change') {
+                    void this.tccd
+                        .withCommittedProfile((profile: ITccProfile): void => {
+                            const ctgpOffset: number = profile.nvidiaPowerCTRLProfile?.cTGPOffset ?? 0;
+                            if (this.ctgpOffsetSysfsProp.readValueNT() !== ctgpOffset) {
+                                this.applyActiveProfile(profile);
+                            }
+                        })
+                        .catch((err: unknown): void => {
+                            console.error(`NVIDIAPowerCTRLListener: cTGP reconciliation failed => ${err}`);
+                        });
                 }
             }.bind(this),
         );
-
-        this.applyActiveProfile();
 
         try {
             const defaultPowerLimit: number = this.getDefaultPowerLimit();
@@ -125,12 +128,8 @@ export class NVIDIAPowerCTRLListener extends DaemonListener {
         }
     }
 
-    private applyActiveProfile(): void {
-        const ctgpOffset: number =
-            this.tccd?.activeProfile?.nvidiaPowerCTRLProfile !== undefined &&
-            this.tccd?.activeProfile?.nvidiaPowerCTRLProfile?.cTGPOffset !== undefined
-                ? this.tccd.activeProfile.nvidiaPowerCTRLProfile.cTGPOffset
-                : 0;
+    private applyActiveProfile(profile: ITccProfile): void {
+        const ctgpOffset: number = profile.nvidiaPowerCTRLProfile?.cTGPOffset ?? 0;
         this.ctgpOffsetSysfsProp.writeValue(ctgpOffset);
     }
 }

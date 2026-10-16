@@ -98,6 +98,7 @@ export class ODMProfileWorker extends DaemonWorker {
                 this.tccd.logLine(`ODMProfileWorker: Setting ODM profile '${chosenODMProfileName}'`);
                 if (!ioAPI.setODMPerformanceProfile(chosenODMProfileName)) {
                     this.tccd.logLine('ODMProfileWorker: Failed to apply profile');
+                    throw new Error('ODMProfileWorker: Failed to apply profile');
                 }
             } else {
                 this.tccd.logLine(

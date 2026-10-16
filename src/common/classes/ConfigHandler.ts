@@ -17,284 +17,462 @@
  * along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
-    defaultCustomProfile,
-    deviceCustomProfiles,
-    deviceProfiles,
-    type TUXEDODevice,
-} from '../models/DefaultProfiles';
-import { defaultProfiles } from '../models/profiles/LegacyProfiles';
-import { defaultFanProfiles, type ITccFanProfile } from '../models/TccFanTable';
-import { generateProfileId, type ITccProfile } from '../models/TccProfile';
-import { defaultSettings, deviceCustomSettings, type ITccSettings } from '../models/TccSettings';
-import type { WebcamPreset } from '../models/TccWebcamSettings';
+	defaultCustomProfile,
+	deviceCustomProfiles,
+	deviceProfiles,
+	type TUXEDODevice,
+} from "../models/DefaultProfiles";
+import { defaultProfiles } from "../models/profiles/LegacyProfiles";
+import { defaultFanProfiles, type ITccFanProfile } from "../models/TccFanTable";
+import { generateProfileId, type ITccProfile } from "../models/TccProfile";
+import {
+	defaultSettings,
+	deviceCustomSettings,
+	type ITccSettings,
+} from "../models/TccSettings";
+import type { WebcamPreset } from "../models/TccWebcamSettings";
 
 export class ConfigHandler {
-    public settingsFileMod: number;
-    public profileFileMod: number;
-    public webcamFileMod: number;
-    public v4l2NamesFileMod: number;
-    public fantablesFileMod: number;
+	public settingsFileMod: number;
+	public profileFileMod: number;
+	public webcamFileMod: number;
+	public v4l2NamesFileMod: number;
+	public fantablesFileMod: number;
 
-    // tslint:disable-next-line: variable-name
-    constructor(
-        private _pathSettings: string,
-        private _pathProfiles: string,
-        private _pathWebcam: string,
-        private _pathV4l2Names: string,
-        private _pathFantables: string,
-    ) {
-        this.settingsFileMod = 0o644;
-        this.profileFileMod = 0o644;
-        this.webcamFileMod = 0o644;
-        this.v4l2NamesFileMod = 0o644;
-        this.fantablesFileMod = 0o644;
-    }
+	// tslint:disable-next-line: variable-name
+	constructor(
+		private _pathSettings: string,
+		private _pathProfiles: string,
+		private _pathWebcam: string,
+		private _pathV4l2Names: string,
+		private _pathFantables: string,
+	) {
+		this.settingsFileMod = 0o644;
+		this.profileFileMod = 0o644;
+		this.webcamFileMod = 0o644;
+		this.v4l2NamesFileMod = 0o644;
+		this.fantablesFileMod = 0o644;
+	}
 
-    public get pathSettings(): string {
-        return this._pathSettings;
-    }
-    public set pathSettings(filename: string) {
-        this._pathSettings = filename;
-    }
-    public get pathProfiles(): string {
-        return this._pathProfiles;
-    }
-    public set pathProfiles(filename: string) {
-        this._pathProfiles = filename;
-    }
-    public get pathWebcam(): string {
-        return this._pathWebcam;
-    }
-    public set pathWebcam(filename: string) {
-        this._pathWebcam = filename;
-    }
-    public get pathV4l2Names(): string {
-        return this._pathV4l2Names;
-    }
-    public set pathV4l2Names(filename: string) {
-        this._pathV4l2Names = filename;
-    }
-    public get pathFanTables(): string {
-        return this._pathFantables;
-    }
-    public set pathFanTables(filename: string) {
-        this._pathFantables = filename;
-    }
+	public get pathSettings(): string {
+		return this._pathSettings;
+	}
+	public set pathSettings(filename: string) {
+		this._pathSettings = filename;
+	}
+	public get pathProfiles(): string {
+		return this._pathProfiles;
+	}
+	public set pathProfiles(filename: string) {
+		this._pathProfiles = filename;
+	}
+	public get pathWebcam(): string {
+		return this._pathWebcam;
+	}
+	public set pathWebcam(filename: string) {
+		this._pathWebcam = filename;
+	}
+	public get pathV4l2Names(): string {
+		return this._pathV4l2Names;
+	}
+	public set pathV4l2Names(filename: string) {
+		this._pathV4l2Names = filename;
+	}
+	public get pathFanTables(): string {
+		return this._pathFantables;
+	}
+	public set pathFanTables(filename: string) {
+		this._pathFantables = filename;
+	}
 
-    public readSettings(filePath: string = this.pathSettings): ITccSettings {
-        return this.readConfig<ITccSettings>(filePath);
-    }
+	public readSettings(filePath: string = this.pathSettings): ITccSettings {
+		return this.readConfig<ITccSettings>(filePath);
+	}
 
-    public async readSettingsAsync(filePath: string = this.pathSettings): Promise<ITccSettings> {
-        return await this.readConfigAsync<ITccSettings>(filePath);
-    }
+	public async readSettingsAsync(
+		filePath: string = this.pathSettings,
+	): Promise<ITccSettings> {
+		return await this.readConfigAsync<ITccSettings>(filePath);
+	}
 
-    public readWebcamSettings(filePath: string = this.pathWebcam): WebcamPreset[] {
-        return this.readConfig<WebcamPreset[]>(filePath);
-    }
+	public readWebcamSettings(
+		filePath: string = this.pathWebcam,
+	): WebcamPreset[] {
+		return this.readConfig<WebcamPreset[]>(filePath);
+	}
 
-    public readV4l2Names(filePath: string = this._pathV4l2Names): string[][] {
-        return this.readConfig<string[][]>(filePath);
-    }
+	public readV4l2Names(filePath: string = this._pathV4l2Names): string[][] {
+		return this.readConfig<string[][]>(filePath);
+	}
 
-    public writeSettings(settings: ITccSettings, filePath: string = this.pathSettings): void {
-        this.writeConfig<ITccSettings>(settings, filePath, {
-            mode: this.settingsFileMod,
-        });
-    }
+	public writeSettings(
+		settings: ITccSettings,
+		filePath: string = this.pathSettings,
+	): void {
+		this.writeConfig<ITccSettings>(settings, filePath, {
+			mode: this.settingsFileMod,
+		});
+	}
 
-    public writeWebcamSettings(settings: WebcamPreset[], filePath: string = this.pathSettings): void {
-        this.writeConfig<WebcamPreset[]>(settings, filePath, {
-            mode: this.settingsFileMod,
-        });
-    }
+	public writeWebcamSettings(
+		settings: WebcamPreset[],
+		filePath: string = this.pathSettings,
+	): void {
+		this.writeConfig<WebcamPreset[]>(settings, filePath, {
+			mode: this.settingsFileMod,
+		});
+	}
 
-    public async writeSettingsAsync(settings: ITccSettings, filePath: string = this.pathSettings): Promise<void> {
-        await this.writeConfigAsync<ITccSettings>(settings, filePath, { mode: this.settingsFileMod });
-    }
+	public async writeSettingsAsync(
+		settings: ITccSettings,
+		filePath: string = this.pathSettings,
+	): Promise<void> {
+		await this.writeConfigAsync<ITccSettings>(settings, filePath, {
+			mode: this.settingsFileMod,
+		});
+	}
+	public async writeSettingsAndProfilesAsync(
+		settings: ITccSettings | undefined,
+		profiles: ITccProfile[] | undefined,
+	): Promise<void> {
+		if (settings === undefined && profiles === undefined) {
+			return;
+		}
+		if (
+			settings !== undefined &&
+			profiles !== undefined &&
+			this.pathSettings === this.pathProfiles
+		) {
+			throw new Error("Settings and profiles must use different paths");
+		}
 
-    private recursivelyFillObject(obj: object, defaultObj: object): boolean {
-        let objModified: boolean = false;
-        for (const key in defaultObj) {
-            if (defaultObj[key] !== undefined && obj[key] === undefined) {
-                obj[key] = defaultObj[key];
-                objModified = true;
-            }
-            if (typeof defaultObj[key] === 'object') {
-                if (this.recursivelyFillObject(obj[key], defaultObj[key])) {
-                    objModified = true;
-                }
-            }
-        }
-        return objModified;
-    }
-    public readProfiles(device: TUXEDODevice, filePath: string = this.pathProfiles): ITccProfile[] {
-        let idUpdated: boolean = false;
-        const profiles: ITccProfile[] = this.readConfig<ITccProfile[]>(filePath).map(
-            (profile: ITccProfile): ITccProfile => {
-                if (profile.id === undefined) {
-                    profile.id = generateProfileId();
-                    console.log(`(readProfiles) Generated id (${profile.id}) for ${profile.name}`);
-                    idUpdated = true;
-                }
-                return profile;
-            },
-        );
+		const previousSettings =
+			settings === undefined
+				? undefined
+				: await this.readOptionalFile(this.pathSettings);
+		const previousProfiles =
+			profiles === undefined
+				? undefined
+				: await this.readOptionalFile(this.pathProfiles);
+		try {
+			if (profiles !== undefined) {
+				this.writeProfiles(profiles);
+			}
+			if (settings !== undefined) {
+				await this.writeSettingsAsync(settings);
+			}
+		} catch (writeError) {
+			const restoreErrors: unknown[] = [];
+			if (profiles !== undefined) {
+				try {
+					await this.restoreFile(
+						this.pathProfiles,
+						previousProfiles,
+						this.profileFileMod,
+					);
+				} catch (error) {
+					restoreErrors.push(error);
+				}
+			}
+			if (settings !== undefined) {
+				try {
+					await this.restoreFile(
+						this.pathSettings,
+						previousSettings,
+						this.settingsFileMod,
+					);
+				} catch (error) {
+					restoreErrors.push(error);
+				}
+			}
+			if (restoreErrors.length > 0) {
+				throw new AggregateError(
+					[writeError, ...restoreErrors],
+					"Configuration write failed and a previous file could not be restored",
+				);
+			}
+			throw writeError;
+		}
+	}
 
-        let valueFilledFromDefault: boolean = false;
-        const defaultCustomProfiles: ITccProfile[] = this.getDefaultCustomProfiles(device);
-        const defaultCustomProfilesIDs: string[] = defaultCustomProfiles.map((profile) => {
-            return profile.id;
-        });
+	private async readOptionalFile(
+		filePath: string,
+	): Promise<Buffer | undefined> {
+		try {
+			return await fs.promises.readFile(filePath);
+		} catch (error) {
+			if (
+				error !== null &&
+				typeof error === "object" &&
+				"code" in error &&
+				error.code === "ENOENT"
+			) {
+				return undefined;
+			}
+			throw error;
+		}
+	}
 
-        profiles.forEach((profile: ITccProfile): void => {
-            let defaultCustomProfile: ITccProfile = defaultCustomProfiles[0];
-            defaultCustomProfilesIDs.forEach((defaultCustomProfileID: string, index: number): void => {
-                if (profile.id === defaultCustomProfileID) {
-                    defaultCustomProfile = defaultCustomProfiles[index];
-                }
-            });
+	private async restoreFile(
+		filePath: string,
+		contents: Buffer | undefined,
+		mode: number,
+	): Promise<void> {
+		if (contents === undefined) {
+			try {
+				await fs.promises.unlink(filePath);
+			} catch (error) {
+				if (
+					error === null ||
+					typeof error !== "object" ||
+					!("code" in error) ||
+					error.code !== "ENOENT"
+				) {
+					throw error;
+				}
+			}
+			return;
+		}
 
-            if (this.recursivelyFillObject(profile, defaultCustomProfile)) {
-                valueFilledFromDefault = true;
-            }
-        });
+		const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.restore`;
+		try {
+			await fs.promises.mkdir(path.dirname(filePath), {
+				mode: 0o755,
+				recursive: true,
+			});
+			await fs.promises.writeFile(temporaryPath, contents, { mode });
+			await fs.promises.rename(temporaryPath, filePath);
+		} catch (error) {
+			try {
+				await fs.promises.unlink(temporaryPath);
+			} catch {}
+			throw error;
+		}
+	}
 
-        if (idUpdated || valueFilledFromDefault) {
-            this.writeProfiles(profiles);
-            console.log(`Saved updated profiles`);
-        }
+	private recursivelyFillObject(obj: object, defaultObj: object): boolean {
+		let objModified: boolean = false;
+		for (const key in defaultObj) {
+			if (defaultObj[key] !== undefined && obj[key] === undefined) {
+				obj[key] = defaultObj[key];
+				objModified = true;
+			}
+			if (typeof defaultObj[key] === "object") {
+				if (this.recursivelyFillObject(obj[key], defaultObj[key])) {
+					objModified = true;
+				}
+			}
+		}
+		return objModified;
+	}
+	public readProfiles(
+		device: TUXEDODevice,
+		filePath: string = this.pathProfiles,
+		persistMigrations: boolean = true,
+	): ITccProfile[] {
+		let idUpdated: boolean = false;
+		const profiles: ITccProfile[] = this.readConfig<ITccProfile[]>(
+			filePath,
+		).map((profile: ITccProfile): ITccProfile => {
+			if (profile.id === undefined) {
+				profile.id = generateProfileId();
+				console.log(
+					`(readProfiles) Generated id (${profile.id}) for ${profile.name}`,
+				);
+				idUpdated = true;
+			}
+			return profile;
+		});
 
-        return profiles;
-    }
+		let valueFilledFromDefault: boolean = false;
+		const defaultCustomProfiles: ITccProfile[] =
+			this.getDefaultCustomProfiles(device);
+		const defaultCustomProfilesIDs: string[] = defaultCustomProfiles.map(
+			(profile) => {
+				return profile.id;
+			},
+		);
 
-    public writeProfiles(profiles: ITccProfile[], filePath: string = this.pathProfiles): void {
-        this.writeConfig<ITccProfile[]>(profiles, filePath, { mode: this.profileFileMod });
-    }
+		profiles.forEach((profile: ITccProfile): void => {
+			let defaultCustomProfile: ITccProfile = defaultCustomProfiles[0];
+			defaultCustomProfilesIDs.forEach(
+				(defaultCustomProfileID: string, index: number): void => {
+					if (profile.id === defaultCustomProfileID) {
+						defaultCustomProfile = defaultCustomProfiles[index];
+					}
+				},
+			);
 
-    public readFanTables(filePath: string = this.pathFanTables): ITccFanProfile[] {
-        return this.readConfig<ITccFanProfile[]>(filePath);
-    }
+			if (this.recursivelyFillObject(profile, defaultCustomProfile)) {
+				valueFilledFromDefault = true;
+			}
+		});
 
-    public writeFanTables(fanTables: ITccFanProfile[], filePath: string = this.pathFanTables): void {
-        this.writeConfig<ITccFanProfile[]>(fanTables, filePath, { mode: this.fantablesFileMod });
-    }
+		if (persistMigrations && (idUpdated || valueFilledFromDefault)) {
+			this.writeProfiles(profiles, filePath);
+			console.log(`Saved updated profiles`);
+		}
 
-    public readConfig<T>(filename: string): T {
-        let config: T;
-        try {
-            const fileData: Buffer = fs.readFileSync(filename);
-            // FIXME for some reason this actually doesn't enforce the type
-            config = JSON.parse(fileData.toString());
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: readConfig failed to read ${filename} => ${err}`);
-            throw err;
-        }
-        return config;
-    }
+		return profiles;
+	}
 
-    public async readConfigAsync<T>(filename: string): Promise<T> {
-        let config: T;
-        try {
-            const fileData: Buffer = await fs.promises.readFile(filename);
-            config = JSON.parse(fileData.toString());
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: readConfigAsync failed to read ${filename} => ${err}`);
-            throw err;
-        }
-        return config;
-    }
+	public writeProfiles(
+		profiles: ITccProfile[],
+		filePath: string = this.pathProfiles,
+	): void {
+		this.writeConfig<ITccProfile[]>(profiles, filePath, {
+			mode: this.profileFileMod,
+		});
+	}
 
-    public writeConfig<T>(config: T, filePath: string, writeFileOptions: fs.WriteFileOptions): void {
-        const fileData: string = JSON.stringify(config);
+	public readFanTables(
+		filePath: string = this.pathFanTables,
+	): ITccFanProfile[] {
+		return this.readConfig<ITccFanProfile[]>(filePath);
+	}
 
-        try {
-            if (!fs.existsSync(path.dirname(filePath))) {
-                fs.mkdirSync(path.dirname(filePath), { mode: 0o755, recursive: true });
-            }
-            fs.writeFileSync(filePath, fileData, writeFileOptions);
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: writeConfig failed => ${err}`);
-            throw err;
-        }
-    }
+	public writeFanTables(
+		fanTables: ITccFanProfile[],
+		filePath: string = this.pathFanTables,
+	): void {
+		this.writeConfig<ITccFanProfile[]>(fanTables, filePath, {
+			mode: this.fantablesFileMod,
+		});
+	}
 
-    public async writeConfigAsync<T>(
-        config: T,
-        filePath: string,
-        writeFileOptions: fs.WriteFileOptions,
-    ): Promise<void> {
-        const fileData: string = JSON.stringify(config);
-        try {
-            const dirStat: fs.Stats = await fs.promises.stat(path.dirname(filePath));
-            if (!dirStat.isDirectory()) {
-                await fs.promises.mkdir(path.dirname(filePath), { mode: 0o755, recursive: true });
-            }
-            await fs.promises.writeFile(filePath, fileData, writeFileOptions);
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: writeConfigAsync failed => ${err}`);
-            throw err;
-        }
-    }
+	public readConfig<T>(filename: string): T {
+		let config: T;
+		try {
+			const fileData: Buffer = fs.readFileSync(filename);
+			// FIXME for some reason this actually doesn't enforce the type
+			config = JSON.parse(fileData.toString());
+		} catch (err: unknown) {
+			console.error(
+				`ConfigHandler: readConfig failed to read ${filename} => ${err}`,
+			);
+			throw err;
+		}
+		return config;
+	}
 
-    public copyConfig<T>(config: T): T {
-        return JSON.parse(JSON.stringify(config));
-    }
+	public async readConfigAsync<T>(filename: string): Promise<T> {
+		let config: T;
+		try {
+			const fileData: Buffer = await fs.promises.readFile(filename);
+			config = JSON.parse(fileData.toString());
+		} catch (err: unknown) {
+			console.error(
+				`ConfigHandler: readConfigAsync failed to read ${filename} => ${err}`,
+			);
+			throw err;
+		}
+		return config;
+	}
 
-    public getDefaultProfiles(device?: TUXEDODevice): ITccProfile[] {
-        let deviceDefaultProfiles: ITccProfile[] = deviceProfiles.get(device);
-        if (deviceDefaultProfiles === undefined) {
-            deviceDefaultProfiles = defaultProfiles;
-        }
-        return this.copyConfig<ITccProfile[]>(deviceDefaultProfiles);
-    }
+	public writeConfig<T>(
+		config: T,
+		filePath: string,
+		writeFileOptions: fs.WriteFileOptions,
+	): void {
+		const fileData: string = JSON.stringify(config);
+		const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
 
-    public getDefaultCustomProfile(): ITccProfile {
-        return this.copyConfig<ITccProfile>(defaultCustomProfile);
-    }
+		try {
+			fs.mkdirSync(path.dirname(filePath), { mode: 0o755, recursive: true });
+			fs.writeFileSync(temporaryPath, fileData, writeFileOptions);
+			fs.renameSync(temporaryPath, filePath);
+		} catch (err: unknown) {
+			try {
+				fs.unlinkSync(temporaryPath);
+			} catch {}
+			console.error(`ConfigHandler: writeConfig failed => ${err}`);
+			throw err;
+		}
+	}
 
-    public getDefaultCustomProfiles(device: TUXEDODevice): ITccProfile[] {
-        let defaultCustomProfiles: ITccProfile[] = deviceCustomProfiles.get(device);
-        if (defaultCustomProfiles === undefined) {
-            defaultCustomProfiles = [this.getDefaultCustomProfile()];
-        }
-        return this.copyConfig<ITccProfile[]>(defaultCustomProfiles);
-    }
+	public async writeConfigAsync<T>(
+		config: T,
+		filePath: string,
+		writeFileOptions: fs.WriteFileOptions,
+	): Promise<void> {
+		const fileData: string = JSON.stringify(config);
+		const temporaryPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+		try {
+			await fs.promises.mkdir(path.dirname(filePath), {
+				mode: 0o755,
+				recursive: true,
+			});
+			await fs.promises.writeFile(temporaryPath, fileData, writeFileOptions);
+			await fs.promises.rename(temporaryPath, filePath);
+		} catch (err: unknown) {
+			try {
+				await fs.promises.unlink(temporaryPath);
+			} catch {}
+			console.error(`ConfigHandler: writeConfigAsync failed => ${err}`);
+			throw err;
+		}
+	}
 
-    public getDefaultSettings(device: TUXEDODevice): ITccSettings {
-        let findDefaultSettings: ITccSettings = deviceCustomSettings.get(device);
-        if (findDefaultSettings === undefined) {
-            findDefaultSettings = defaultSettings;
-        }
-        return this.copyConfig<ITccSettings>(findDefaultSettings);
-    }
+	public copyConfig<T>(config: T): T {
+		return JSON.parse(JSON.stringify(config));
+	}
 
-    public getCustomProfilesNoThrow(device: TUXEDODevice): ITccProfile[] {
-        try {
-            return this.readProfiles(device);
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: getCustomProfilesNoThrow failed => ${err}`);
-            return this.getDefaultCustomProfiles(device);
-        }
-    }
+	public getDefaultProfiles(device?: TUXEDODevice): ITccProfile[] {
+		let deviceDefaultProfiles: ITccProfile[] = deviceProfiles.get(device);
+		if (deviceDefaultProfiles === undefined) {
+			deviceDefaultProfiles = defaultProfiles;
+		}
+		return this.copyConfig<ITccProfile[]>(deviceDefaultProfiles);
+	}
 
-    public getAllProfilesNoThrow(device: TUXEDODevice): ITccProfile[] {
-        return this.getDefaultProfiles().concat(this.getCustomProfilesNoThrow(device));
-    }
+	public getDefaultCustomProfile(): ITccProfile {
+		return this.copyConfig<ITccProfile>(defaultCustomProfile);
+	}
 
-    public getSettingsNoThrow(device: TUXEDODevice): ITccSettings {
-        try {
-            return this.readSettings();
-        } catch (err: unknown) {
-            console.error(`ConfigHandler: getSettingsNoThrow failed => ${err}`);
-            return this.getDefaultSettings(device);
-        }
-    }
+	public getDefaultCustomProfiles(device: TUXEDODevice): ITccProfile[] {
+		let defaultCustomProfiles: ITccProfile[] = deviceCustomProfiles.get(device);
+		if (defaultCustomProfiles === undefined) {
+			defaultCustomProfiles = [this.getDefaultCustomProfile()];
+		}
+		return this.copyConfig<ITccProfile[]>(defaultCustomProfiles);
+	}
 
-    public getDefaultFanProfiles(): ITccFanProfile[] {
-        return this.copyConfig<ITccFanProfile[]>(defaultFanProfiles);
-    }
+	public getDefaultSettings(device: TUXEDODevice): ITccSettings {
+		let findDefaultSettings: ITccSettings = deviceCustomSettings.get(device);
+		if (findDefaultSettings === undefined) {
+			findDefaultSettings = defaultSettings;
+		}
+		return this.copyConfig<ITccSettings>(findDefaultSettings);
+	}
+
+	public getCustomProfilesNoThrow(device: TUXEDODevice): ITccProfile[] {
+		try {
+			return this.readProfiles(device);
+		} catch (err: unknown) {
+			console.error(`ConfigHandler: getCustomProfilesNoThrow failed => ${err}`);
+			return this.getDefaultCustomProfiles(device);
+		}
+	}
+
+	public getAllProfilesNoThrow(device: TUXEDODevice): ITccProfile[] {
+		return this.getDefaultProfiles().concat(
+			this.getCustomProfilesNoThrow(device),
+		);
+	}
+
+	public getSettingsNoThrow(device: TUXEDODevice): ITccSettings {
+		try {
+			return this.readSettings();
+		} catch (err: unknown) {
+			console.error(`ConfigHandler: getSettingsNoThrow failed => ${err}`);
+			return this.getDefaultSettings(device);
+		}
+	}
+
+	public getDefaultFanProfiles(): ITccFanProfile[] {
+		return this.copyConfig<ITccFanProfile[]>(defaultFanProfiles);
+	}
 }

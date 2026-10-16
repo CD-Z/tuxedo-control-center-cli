@@ -29,6 +29,7 @@ export abstract class DaemonWorker {
     ) {}
 
     public timer: NodeJS.Timeout;
+    private workInProgress: boolean = false;
 
     protected previousProfile: ITccProfile;
     protected activeProfile: ITccProfile;
@@ -41,7 +42,15 @@ export abstract class DaemonWorker {
         await this.triggerWork(this.onStart);
     }
     public async work(): Promise<void> {
-        await this.triggerWork(this.onWork);
+        if (this.workInProgress) {
+            return;
+        }
+        this.workInProgress = true;
+        try {
+            await this.triggerWork(this.onWork);
+        } finally {
+            this.workInProgress = false;
+        }
     }
     public async exit(): Promise<void> {
         await this.triggerWork(this.onExit);

@@ -25,4 +25,14 @@
         <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
     </action>
 
+    <action id="com.tuxedocomputers.tccd.switch-profile">
+        <description>Switch the TUXEDO Control Center profile</description>
+        <message>Authentication is required to change the TUXEDO Control Center profile</message>
+        <defaults>
+            <allow_any>no</allow_any>
+            <allow_inactive>no</allow_inactive>
+            <allow_active>yes</allow_active>
+        </defaults>
+    </action>
+
 </policyconfig>

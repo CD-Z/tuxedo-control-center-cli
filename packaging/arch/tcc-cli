@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /usr/bin/node /opt/tuxedo-control-center/resources/dist/tuxedo-control-center/data/cli/tcc-cli.cjs "$@"

@@ -30,8 +30,8 @@ export abstract class FanControlBaseClass {
 
     public fans: Map<number, FanControlLogic>;
 
-    public async setFan(index: number, logic: FAN_LOGIC): Promise<void> {
-        const fanLogic = new FanControlLogic(this.tccd?.getCurrentFanProfile(), logic, this.tccd);
+    public async setFan(index: number, logic: FAN_LOGIC, fanProfile: ITccFanProfile): Promise<void> {
+        const fanLogic = new FanControlLogic(fanProfile, logic, this.tccd);
         this.fans.set(index, fanLogic);
     }
 
@@ -66,7 +66,11 @@ export abstract class FanControlBaseClass {
     }
 
     public abstract initFanControl(fanWriteAvailable: boolean, fanControlEnabled: boolean): Promise<void>;
-    public abstract mapLogicToFans(numberInterfaces: number, reset: boolean): Promise<boolean>;
+    public abstract mapLogicToFans(
+        numberInterfaces: number,
+        reset: boolean,
+        fanProfile: ITccFanProfile,
+    ): Promise<boolean>;
     public abstract getNumberTempsAvailable(): Promise<number>;
 
     public abstract getFanSpeedPercent(fanIndex: number): Promise<number>;

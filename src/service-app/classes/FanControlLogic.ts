@@ -19,7 +19,6 @@
 
 import { manageCriticalTemperature } from '../../common/classes/FanUtils';
 import type { ITccFanProfile, ITccFanTableEntry } from '../../common/models/TccFanTable';
-import { getCurrentCustomProfile } from './FanControlUtils';
 import type { TuxedoControlCenterDaemon } from './TuxedoControlCenterDaemon';
 
 export enum FAN_LOGIC {
@@ -183,10 +182,6 @@ export class FanControlLogic {
     }
 
     public async setFanProfile(fanProfile: ITccFanProfile): Promise<void> {
-        if (fanProfile?.name === 'Custom') {
-            fanProfile = await getCurrentCustomProfile(this.tccd.activeProfile);
-        }
-
         const fanTable: ITccFanTableEntry[] = fanProfile[this.useTable];
 
         if (!fanTable) {

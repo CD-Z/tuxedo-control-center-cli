@@ -18,9 +18,10 @@
  */
 
 import type { TuxedoControlCenterDaemon } from './TuxedoControlCenterDaemon';
+import type { ITccProfile } from '../../common/models/TccProfile';
 
 export abstract class DaemonListener {
     constructor(protected tccd: TuxedoControlCenterDaemon) {}
 
-    public abstract onActiveProfileChanged(): void;
+    public abstract onActiveProfileChanged(profile: ITccProfile): void;
 }

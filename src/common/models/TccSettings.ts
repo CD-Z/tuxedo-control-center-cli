@@ -18,6 +18,7 @@
  */
 
 import { defaultCustomProfile, defaultMobileCustomProfileID, TUXEDODevice } from './DefaultProfiles';
+import type { IPowerProfilesConfig } from './PowerProfiles';
 
 export enum ProfileStates {
     AC = 'power_ac',
@@ -60,6 +61,7 @@ export interface ITccSettings {
     chargingProfile: string | null;
     chargingPriority: string | null;
     keyboardBacklightStates: Array<KeyboardBacklightStateInterface>;
+    ppd?: IPowerProfilesConfig;
 }
 
 export const defaultSettings: ITccSettings = {

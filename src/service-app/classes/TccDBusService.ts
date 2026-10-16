@@ -21,6 +21,8 @@ import * as dbus from 'dbus-next';
 import { TuxedoIOAPI } from '../../native-lib/TuxedoIOAPI';
 import { DaemonWorker } from './DaemonWorker';
 import { type TccDBusData, TccDBusInterface, TccDBusOptions } from './TccDBusInterface';
+import { DBusAuthorization } from './DBusAuthorization';
+import { type PowerProfilesBus, PowerProfilesService } from './PowerProfilesService';
 import type { TuxedoControlCenterDaemon } from './TuxedoControlCenterDaemon';
 
 export class TccDBusService extends DaemonWorker {
@@ -30,6 +32,7 @@ export class TccDBusService extends DaemonWorker {
     private bus: dbus.MessageBus;
 
     private started: boolean = false;
+    private powerProfilesService?: PowerProfilesService;
 
     constructor(
         tccd: TuxedoControlCenterDaemon,
@@ -39,9 +42,6 @@ export class TccDBusService extends DaemonWorker {
         this.dbusData.dbusAvailable = true;
 
         const options: TccDBusOptions = new TccDBusOptions();
-        options.triggerStateCheck = async (): Promise<void> => {
-            this.tccd.triggerStateCheck();
-        };
         options.chargingWorker = this.tccd.getChargingWorker();
 
         try {
@@ -53,20 +53,37 @@ export class TccDBusService extends DaemonWorker {
     }
 
     public async onStart(): Promise<void> {
-        if (!this.started) {
-            this.bus
-                .requestName('com.tuxedocomputers.tccd', 0)
-                .then((_name: number): void => {
-                    try {
-                        this.bus.export(this.path, this.interface);
-                        this.started = true;
-                    } catch (err: unknown) {
-                        console.error(`TccDBusService: Error exporting service => ${err}`);
-                    }
-                })
-                .catch((err: unknown): void => {
-                    console.error(`TccDBusService: Failed to request bus name => ${err}`);
-                });
+        if (this.started) {
+            return;
+        }
+        try {
+            const result = await this.bus.requestName('com.tuxedocomputers.tccd', dbus.NameFlag.DO_NOT_QUEUE);
+            if (result !== dbus.RequestNameReply.PRIMARY_OWNER && result !== dbus.RequestNameReply.ALREADY_OWNER) {
+                throw new Error(`TCC D-Bus name is already owned (result ${result})`);
+            }
+            this.bus.export(this.path, this.interface);
+            this.started = true;
+            this.powerProfilesService = new PowerProfilesService({
+                bus: this.bus as PowerProfilesBus,
+                selector: this.tccd.getProfileSelection(),
+                authorization: new DBusAuthorization(this.bus),
+                backend: {
+                    selectTccProfileByName: async (name: string, _persistence: 'temporary'): Promise<void> => {
+                        await this.tccd.selectTccProfileByName(name);
+                    },
+                    replaceProfileConfiguration: async (settingsJSON: string, profilesJSON: string): Promise<boolean> =>
+                        await this.tccd.replaceProfileConfiguration(settingsJSON, profilesJSON),
+                },
+                packageVersion: this.dbusData.tccdVersion,
+                log: (message) => console.error(`PowerProfilesService: ${message}`),
+            });
+            try {
+                await this.powerProfilesService.start();
+            } catch (err: unknown) {
+                console.error(`PowerProfilesService: Failed to start => ${err}`);
+            }
+        } catch (err: unknown) {
+            console.error(`TccDBusService: Failed to own or export service => ${err}`);
         }
     }
 
@@ -79,13 +96,29 @@ export class TccDBusService extends DaemonWorker {
         }
     }
 
-    public async onExit(): Promise<void> {
-        this.dbusData.dbusAvailable = false;
+    public async refreshPowerProfilesProvider(): Promise<void> {
+        await this.powerProfilesService?.refreshProvider();
+    }
+    public notifyPowerProfilesPropertiesChanged(): void {
+        this.powerProfilesService?.notifyPropertiesChanged();
+    }
 
+    public emitProfileReleased(owner: string, cookie: number): void {
+        this.powerProfilesService?.emitProfileReleased(owner, cookie);
+    }
+
+    public async onExit(): Promise<void> {
+        await this.powerProfilesService?.stop();
+        this.dbusData.dbusAvailable = false;
         try {
-            this.bus.unexport(this.path, this.interface);
+            if (this.started) {
+                this.bus.unexport(this.path, this.interface);
+            }
+            await this.bus.releaseName('com.tuxedocomputers.tccd');
         } catch (err: unknown) {
             console.error(`TccDBusService: onExit failed => ${err}`);
         }
+        this.bus.disconnect();
+        this.started = false;
     }
 }

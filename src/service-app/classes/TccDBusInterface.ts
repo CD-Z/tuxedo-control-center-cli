@@ -46,8 +46,6 @@ export class TccDBusData {
     public cpuPowerValuesJSON: string = '{}';
     public primeState: string = '-1';
     public modeReapplyPending: boolean;
-    public tempProfileName: string = '';
-    public tempProfileId: string = '';
     public activeProfileJSON: string = '{}';
     public profilesJSON: string = '{}';
     public customProfilesJSON: string = '{}';
@@ -70,7 +68,6 @@ export class TccDBusData {
 }
 
 export class TccDBusOptions {
-    public triggerStateCheck?: () => Promise<void>;
     public chargingWorker?: ChargingWorker;
 }
 
@@ -86,9 +83,6 @@ export class TccDBusInterface extends dbus.interface.Interface {
         super('com.tuxedocomputers.tccd');
 
         this.interfaceOptions = options;
-        if (this.interfaceOptions.triggerStateCheck === undefined) {
-            this.interfaceOptions.triggerStateCheck = async (): Promise<void> => {};
-        }
     }
 
     private resetDataCollectionTimeout(): void {
@@ -225,17 +219,29 @@ export class TccDBusInterface extends dbus.interface.Interface {
         return this.data.activeProfileJSON;
     }
 
+    // The raw dispatcher applies caller-aware Polkit checks. This fallback must fail closed.
     // biome-ignore lint: function is never read because of dbus
-    private SetTempProfile(profileName: string): boolean {
-        this.data.tempProfileName = profileName;
-        return true;
+    private async SetTempProfile(_profileName: string): Promise<boolean> {
+        throw new dbus.DBusError(
+            'org.freedesktop.DBus.Error.AccessDenied',
+            'Caller-aware profile selection is unavailable',
+        );
     }
 
     // biome-ignore lint: function is never read because of dbus
-    private SetTempProfileById(id: string): boolean {
-        this.data.tempProfileId = id;
-        this.interfaceOptions.triggerStateCheck();
-        return true;
+    private async SetTempProfileById(_id: string): Promise<boolean> {
+        throw new dbus.DBusError(
+            'org.freedesktop.DBus.Error.AccessDenied',
+            'Caller-aware profile selection is unavailable',
+        );
+    }
+
+    // biome-ignore lint: function is never read because of dbus
+    private async ReplaceProfileConfiguration(_settingsJSON: string, _profilesJSON: string): Promise<boolean> {
+        throw new dbus.DBusError(
+            'org.freedesktop.DBus.Error.AccessDenied',
+            'Caller-aware configuration replacement is unavailable',
+        );
     }
 
     // biome-ignore lint: function is never read because of dbus
@@ -438,6 +444,10 @@ TccDBusInterface.configureMembers({
         GetActiveProfileJSON: { outSignature: 's' },
         SetTempProfile: { inSignature: 's', outSignature: 'b' },
         SetTempProfileById: { inSignature: 's', outSignature: 'b' },
+        ReplaceProfileConfiguration: {
+            inSignature: 'ss',
+            outSignature: 'b',
+        },
         GetProfilesJSON: { outSignature: 's' },
         GetCustomProfilesJSON: { outSignature: 's' },
         GetDefaultProfilesJSON: { outSignature: 's' },

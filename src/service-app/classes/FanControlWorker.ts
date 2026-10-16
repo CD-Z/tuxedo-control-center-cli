@@ -19,6 +19,7 @@
 
 import type { TUXEDODevice } from '../../common/models/DefaultProfiles';
 import { FanData } from '../../common/models/IFanData';
+import type { ITccProfile } from '../../common/models/TccProfile';
 import type { ITccFanProfile, ITccFanTableEntry } from '../../common/models/TccFanTable';
 import { ModuleInfo, TuxedoIOAPI } from '../../native-lib/TuxedoIOAPI';
 import { DaemonWorker } from './DaemonWorker';
@@ -85,8 +86,7 @@ export class FanControlWorker extends DaemonWorker {
         if (retry !== true) {
             this.retryFanInitCounter = 5;
         }
-
-        this.mapStatus = false;
+        const profile: ITccProfile = this.activeProfile;
 
         if (!this.fanApi) {
             const fanControlClasses: {
@@ -100,17 +100,22 @@ export class FanControlWorker extends DaemonWorker {
 
             for (const { class: fanClass, name } of fanControlClasses) {
                 this.fanApi = fanClass;
-                if (await this.initializeFanControl(this.fanApi, name)) {
+                if (await this.initializeFanControl(this.fanApi, profile, name)) {
                     if (name === 'tuxedo-io') {
                         this.setActiveInterface();
                     }
+                    await this.checkFanControlAvailable(this.tccd.settings.fanControlEnabled, profile);
                     return;
                 }
             }
 
             this.fanApi = null;
             console.log('FanControlWorker: onStart: Fan API not available');
+            return;
         }
+
+        await this.initializeFanControl(this.fanApi, profile, undefined, true);
+        await this.checkFanControlAvailable(this.tccd.settings.fanControlEnabled, profile);
     }
 
     private setActiveInterface() {
@@ -138,19 +143,20 @@ export class FanControlWorker extends DaemonWorker {
 
     public async onWork(): Promise<void> {
         try {
-            if (this.fanApi === undefined || this.fanApi === null) {
+            await this.checkFanApiAvailable();
+            if (!this.fanApi) {
                 return;
             }
 
+            const profile: ITccProfile = this.activeProfile;
             const fanControlEnabled: boolean = this.tccd.settings.fanControlEnabled;
             const sensorCollection: boolean = this.tccd.dbusData.sensorDataCollectionStatus;
 
-            await this.checkFanApiAvailable();
             if (this.fanReadAvailable) {
-                await this.checkFanControlAvailable(fanControlEnabled);
+                await this.checkFanControlAvailable(fanControlEnabled, profile);
 
                 if (this.fanApi && this.mapStatus && (fanControlEnabled || sensorCollection)) {
-                    await this.updateFanControlValues(fanControlEnabled);
+                    await this.updateFanControlValues(fanControlEnabled, profile);
                 }
             }
 
@@ -158,7 +164,9 @@ export class FanControlWorker extends DaemonWorker {
             if (this.fanCheckCounter < 20) {
                 this.nrTempsAvailable = await this.fanApi.getNumberTempsAvailable();
                 if (this.nrTempsAvailable !== 0) {
-                    await this.initializeFanControl(this.fanApi, undefined, true);
+                    const currentFanProfile: ITccFanProfile = await this.resolveFanProfile(profile);
+                    await this.initializeFanControlApi(this.tccd.settings.fanControlEnabled, true, currentFanProfile);
+                    await this.setFanProfile(profile, currentFanProfile);
                 }
                 this.fanCheckCounter += 1;
             }
@@ -173,16 +181,18 @@ export class FanControlWorker extends DaemonWorker {
 
     private async initializeFanControl(
         fanApiInstance: FanControlBaseClass,
+        profile: ITccProfile,
         name?: string,
-        resetFanMap?: boolean,
+        resetFanMap: boolean = false,
     ): Promise<boolean> {
         [this.fanReadAvailable, this.fanWriteAvailable] = await fanApiInstance.checkAvailable();
         if (this.fanReadAvailable) {
             if (name) {
                 console.log(`FanControlWorker: initializeFanControl: ${name} available`);
             }
-            await this.initializeFanControlApi(this.tccd.settings.fanControlEnabled, resetFanMap);
-            await this.setFanProfile();
+            const currentFanProfile: ITccFanProfile = await this.resolveFanProfile(profile);
+            await this.initializeFanControlApi(this.tccd.settings.fanControlEnabled, resetFanMap, currentFanProfile);
+            await this.setFanProfile(profile, currentFanProfile);
             const numberFans: number = await fanApiInstance.getNumberFans();
 
             if (numberFans === 1) {
@@ -208,7 +218,7 @@ export class FanControlWorker extends DaemonWorker {
         if (fanApiUnavailable && this.retryFanInitCounter > 0) {
             console.log('FanControlWorker: checkFanApiAvailable: Fan API not defined, retrying initialization');
             this.retryFanInitCounter = this.retryFanInitCounter - 1;
-            this.onStart(true);
+            await this.onStart(true);
             return;
         }
 
@@ -218,12 +228,13 @@ export class FanControlWorker extends DaemonWorker {
         }
     }
 
-    private async checkFanControlAvailable(fanControlEnabled: boolean): Promise<void> {
-        if (this.fanApi) {
+    private async checkFanControlAvailable(fanControlEnabled: boolean, profile: ITccProfile): Promise<void> {
+        if (this.fanApi && this.fanReadAvailable) {
             if (this.mapStatus === false) {
                 console.log('FanControlWorker: checkFanControlAvailable: No fans found, retrying initialization');
-                await this.initializeFanControlApi(fanControlEnabled);
-                await this.setFanProfile();
+                const currentFanProfile: ITccFanProfile = await this.resolveFanProfile(profile);
+                await this.initializeFanControlApi(fanControlEnabled, true, currentFanProfile);
+                await this.setFanProfile(profile, currentFanProfile);
 
                 const numberFans: number = await this.fanApi.getNumberFans();
                 if (numberFans === 1) {
@@ -235,7 +246,11 @@ export class FanControlWorker extends DaemonWorker {
         }
     }
 
-    private async initializeFanControlApi(fanControlEnabled: boolean, resetFanMap?: boolean): Promise<void> {
+    private async initializeFanControlApi(
+        fanControlEnabled: boolean,
+        resetFanMap: boolean,
+        currentFanProfile: ITccFanProfile,
+    ): Promise<void> {
         await this.fanApi.initFanControl(this.fanWriteAvailable, fanControlEnabled);
         const numberInterfaces: number = await this.fanApi.getNumberFanInterfaces();
 
@@ -246,7 +261,7 @@ export class FanControlWorker extends DaemonWorker {
         }
 
         if (numberInterfaces) {
-            this.mapStatus = await this.fanApi.mapLogicToFans(numberInterfaces, resetFanMap);
+            this.mapStatus = await this.fanApi.mapLogicToFans(numberInterfaces, resetFanMap, currentFanProfile);
             await this.setPreviousFans();
             return;
         }
@@ -257,16 +272,15 @@ export class FanControlWorker extends DaemonWorker {
         return JSON.stringify(first) === JSON.stringify(second);
     }
 
-    private async setFanProfile(): Promise<void> {
-        const fanProfile: string = this.activeProfile.fan.fanProfile;
-        const isCustomProfile: boolean = fanProfile === 'Custom';
+    private async resolveFanProfile(profile: ITccProfile): Promise<ITccFanProfile> {
+        return profile.fan.fanProfile === 'Custom'
+            ? await getCurrentCustomProfile(profile)
+            : this.tccd.getCurrentFanProfile(profile);
+    }
 
-        const currentFanProfile: ITccFanProfile = isCustomProfile
-            ? await getCurrentCustomProfile(this.activeProfile)
-            : this.tccd.getCurrentFanProfile(this.activeProfile);
-
+    private async setFanProfile(profile: ITccProfile, currentFanProfile: ITccFanProfile): Promise<void> {
         console.log('FanControlWorker: setFanProfile: Setting fan profile');
-        await this.fanApi.setFanProfileValues(this.activeProfile, currentFanProfile);
+        await this.fanApi.setFanProfileValues(profile, currentFanProfile);
     }
 
     private async updateTempLogic(fans: Map<number, FanControlLogic>, fanNumber: number) {
@@ -306,12 +320,14 @@ export class FanControlWorker extends DaemonWorker {
         );
     }
 
-    private async updateFanControlValues(fanControlEnabled: boolean): Promise<void> {
+    private async updateFanControlValues(fanControlEnabled: boolean, profile: ITccProfile): Promise<void> {
         const fans: Map<number, FanControlLogic> = await this.fanApi.getFans();
 
         if (fans.size === 0) {
             console.log('FanControlWorker: updateFanControlValues: No fans found, retrying initialization');
-            await this.initializeFanControlApi(fanControlEnabled);
+            const currentFanProfile: ITccFanProfile = await this.resolveFanProfile(profile);
+            await this.initializeFanControlApi(fanControlEnabled, true, currentFanProfile);
+            await this.setFanProfile(profile, currentFanProfile);
             return;
         }
 

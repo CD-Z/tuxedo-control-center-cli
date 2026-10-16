@@ -20,6 +20,7 @@
 import * as fs from 'node:fs';
 import type { SysFsPropertyInteger } from '../../common/classes/SysFsProperties';
 import type { IFanDataInputs, IFanTempData } from '../../common/models/ITccFans';
+import type { ITccFanProfile } from '../../common/models/TccFanTable';
 import { FanControlBaseClass } from './FanControlBaseClass';
 import type { FanControlLogic } from './FanControlLogic';
 import { FAN_LOGIC } from './FanControlLogic';
@@ -217,7 +218,11 @@ export class FanControlHwmon extends FanControlBaseClass {
         };
     }
 
-    public async mapLogicToFans(numberInterfaces: number, reset: boolean): Promise<boolean> {
+    public async mapLogicToFans(
+        numberInterfaces: number,
+        reset: boolean,
+        fanProfile: ITccFanProfile,
+    ): Promise<boolean> {
         if (!this.fans || reset) {
             this.fans = new Map();
             for (let i: number = 1; i <= numberInterfaces; i++) {
@@ -231,20 +236,20 @@ export class FanControlHwmon extends FanControlBaseClass {
 
                 if (label) {
                     if (label.includes('cpu')) {
-                        this.setFan(i, FAN_LOGIC.CPU);
+                        await this.setFan(i, FAN_LOGIC.CPU, fanProfile);
                         continue;
                     }
                     if (label.includes('gpu')) {
-                        this.setFan(i, FAN_LOGIC.GPU);
+                        await this.setFan(i, FAN_LOGIC.GPU, fanProfile);
                         continue;
                     }
                     console.log(`FanControlHwmon: unknown label ${label}, setting fan as cpu fan`);
-                    this.setFan(i, FAN_LOGIC.CPU);
+                    await this.setFan(i, FAN_LOGIC.CPU, fanProfile);
                 }
 
                 if (!label) {
                     console.log(`FanControlHwmon: label not found for index ${i - 1}, setting fan as cpu fan`);
-                    this.setFan(i, FAN_LOGIC.CPU);
+                    await this.setFan(i, FAN_LOGIC.CPU, fanProfile);
                 }
             }
         }

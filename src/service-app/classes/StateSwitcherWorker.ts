@@ -43,84 +43,32 @@ export class StateSwitcherWorker extends DaemonWorker {
     }
 
     public async onStart(): Promise<void> {
-        // Check state and switch profile if appropriate
-        const newState: ProfileStates = determineState();
-
-        if (newState !== this.currentState) {
-            this.currentState = newState;
-            const newActiveProfileId: string = this.tccd.settings.stateMap[newState.toString()];
-            this.currentStateProfileId = newActiveProfileId;
-            if (newActiveProfileId !== undefined) {
-                this.tccd.setCurrentProfileById(newActiveProfileId);
-            } else {
-                this.tccd.logLine(`StateSwitcherWorker: Undefined state mapping for ${newState.toString()}`);
-            }
-
-            this.tccd.updateDBusActiveProfileData();
-
-            // Note: No need to manually run other workers on fresh start
+        const state = determineState();
+        if (this.currentState !== undefined && state !== this.currentState) {
+            await this.tccd.powerStateChanged(state);
         }
+        this.currentState = state;
+        this.currentStateProfileId = this.tccd.settings.stateMap[state];
     }
 
     public async onWork(): Promise<void> {
-        // Check state and switch profile if appropriate
-        const newState: ProfileStates = determineState();
-        const oldActiveProfileId: string = this.tccd.activeProfile.id;
-        const oldActiveProfileName: string = this.tccd.activeProfile.name;
+        const state = determineState();
+        const profileId = this.tccd.settings.stateMap[state];
+        const stateChanged = state !== this.currentState;
+        const assignmentChanged = profileId !== this.currentStateProfileId;
 
-        const newStateProfileId: string = this.tccd.settings.stateMap[newState.toString()];
-
-        if (newState !== this.currentState || newStateProfileId !== this.currentStateProfileId) {
-            /*
-             * If state changed or assigned profile depending on state changed,
-             * unset temp profile and set state selected profile
-             */
-
-            // Deactivate temp profile choices on real state change
-            this.tccd.dbusData.tempProfileName = undefined;
-            this.tccd.dbusData.tempProfileId = undefined;
-
-            // Set active profile according to state map
-            this.currentState = newState;
-            this.currentStateProfileId = newStateProfileId;
-            if (newStateProfileId === undefined) {
-                this.tccd.logLine(`StateSwitcherWorker: Undefined state mapping for ${newState.toString()}`);
-            } else {
-                this.tccd.setCurrentProfileById(newStateProfileId);
-            }
-        } else {
-            // If state didn't change, a manual temporary profile can still be set
-            if (
-                this.tccd.dbusData.tempProfileName !== undefined &&
-                this.tccd.dbusData.tempProfileName !== '' &&
-                this.tccd.dbusData.tempProfileName !== oldActiveProfileName
-            ) {
-                if (this.tccd.setCurrentProfileByName(this.tccd.dbusData.tempProfileName)) {
-                    this.tccd.logLine(
-                        `StateSwitcherWorker: Temp profile '${this.tccd.getCurrentProfile().name}' (${this.tccd.getCurrentProfile().id}) selected`,
-                    );
-                }
-            }
-            if (
-                this.tccd.dbusData.tempProfileId !== undefined &&
-                this.tccd.dbusData.tempProfileId !== '' &&
-                this.tccd.dbusData.tempProfileId !== oldActiveProfileId
-            ) {
-                if (this.tccd.setCurrentProfileById(this.tccd.dbusData.tempProfileId)) {
-                    this.tccd.logLine(
-                        `StateSwitcherWorker: Temp profile '${this.tccd.getCurrentProfile().name}' (${this.tccd.getCurrentProfile().id}) selected`,
-                    );
-                    this.tccd.dbusData.tempProfileName = undefined;
-                }
-            }
+        if (stateChanged) {
+            await this.tccd.powerStateChanged(state);
         }
+        if (assignmentChanged) {
+            await this.tccd.powerStateChanged(state, true);
+        }
+        this.currentState = state;
+        this.currentStateProfileId = profileId;
 
-        // Run worker start procedure / application of profile
-        // if the profile changed
-        if (oldActiveProfileId !== this.tccd.activeProfile.id || this.refreshProfile) {
+        if (this.refreshProfile) {
+            await this.tccd.reapplyProfile();
             this.refreshProfile = false;
-            this.tccd.updateDBusActiveProfileData();
-            this.tccd.startWorkers();
         }
     }
 

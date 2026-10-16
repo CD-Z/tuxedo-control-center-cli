@@ -46,15 +46,18 @@ test:
     interruptible: true
     script:
         - npm ci
-        - npm run build-prod
-        - npm run tests
+        - npm run build-headless
+        - npm run test-common
+        - npm run test-service-app
+        - npm run test-cli
+        - npm run test-ppd-integration
 
 # Package non-release
 package-other:
     stage: package
     interruptible: true
     rules:
-        - !reference [.rules-test-packages, rules]
+        - when: never
     artifacts:
         name: 'packages'
         paths:
@@ -68,7 +71,7 @@ package-other:
 package-release:
     stage: package
     rules:
-        - !reference [.rules-release-packages, rules]
+        - when: never
     artifacts:
         name: 'packages'
         paths:
@@ -89,7 +92,6 @@ test-package-exist:
                   - deb
                   - rpm
     rules:
-        - !reference [.rules-test-packages, rules]
-        - !reference [.rules-release-packages, rules]
+        - when: never
     script:
         - find dist/packages -type f -name *.$PKG_EXT | read

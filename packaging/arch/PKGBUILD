@@ -1,0 +1,52 @@
+pkgbase=tuxedo-control-center-cli
+pkgname=('tuxedo-control-center-cli' 'tuxedo-control-center-cli-ppd')
+pkgver=3.0.10
+pkgrel=1
+pkgdesc='Headless TUXEDO Control Center daemon and command-line client'
+arch=('x86_64')
+url='https://tuxedocomputers.com'
+license=('GPL3')
+makedepends=('base-devel' 'git' 'nodejs>=24' 'npm' 'python' 'systemd')
+# Supply a local archive with a top-level directory named tuxedo-control-center-cli-${pkgver}.
+source=("${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+_buildroot="${srcdir}/${pkgbase}-${pkgver}"
+_runtime='/opt/tuxedo-control-center/resources/dist/tuxedo-control-center/data'
+
+build() {
+    cd "${_buildroot}"
+    npm ci --ignore-scripts
+    npm run build-headless
+}
+
+package_tuxedo-control-center-cli() {
+    pkgdesc='Headless TUXEDO Control Center daemon and command-line client'
+    depends=('nodejs>=24' 'glibc' 'gcc-libs' 'systemd-libs' 'libxcrypt-compat' 'python' 'dbus' 'polkit' 'upower' 'systemd')
+    optdepends=('tuxedo-drivers-dkms: TUXEDO hardware support through tuxedo-io')
+    conflicts=('tuxedo-control-center')
+
+    cd "${_buildroot}"
+    install -Dm755 "dist/tuxedo-control-center/data/service/tccd" "${pkgdir}${_runtime}/service/tccd"
+    install -Dm755 "dist/tuxedo-control-center/data/cli/tcc-cli.cjs" "${pkgdir}${_runtime}/cli/tcc-cli.cjs"
+    install -Dm755 'packaging/arch/tcc-cli' "${pkgdir}/usr/bin/tcc-cli"
+    install -Dm755 'src/cameractrls/cameractrls.py' "${pkgdir}${_runtime}/camera/cameractrls.py"
+    install -Dm644 'src/cameractrls/v4l2_kernel_names.json' "${pkgdir}${_runtime}/camera/v4l2_kernel_names.json"
+    install -Dm644 'src/dist-data/tccd.service' "${pkgdir}/usr/lib/systemd/system/tccd.service"
+    install -Dm644 'src/dist-data/tccd-sleep.service' "${pkgdir}/usr/lib/systemd/system/tccd-sleep.service"
+    install -Dm644 'src/dist-data/com.tuxedocomputers.tccd.conf' "${pkgdir}/usr/share/dbus-1/system.d/com.tuxedocomputers.tccd.conf"
+    install -Dm644 'src/dist-data/com.tuxedocomputers.tccd.policy' "${pkgdir}/usr/share/polkit-1/actions/com.tuxedocomputers.tccd.policy"
+    install -Dm644 'src/udev/99-webcam.rules' "${pkgdir}/usr/lib/udev/rules.d/99-webcam.rules"
+}
+
+package_tuxedo-control-center-cli-ppd() {
+    pkgdesc='Power-profiles-daemon compatible provider for TUXEDO Control Center'
+    depends=("tuxedo-control-center-cli=${pkgver}-${pkgrel}")
+    provides=('power-profiles-daemon')
+    conflicts=('power-profiles-daemon' 'tlp-pd' 'tuned-ppd' 'tuxedo-power-profiles-adapter-git')
+
+    cd "${_buildroot}"
+    install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.service' "${pkgdir}/usr/share/dbus-1/system-services/org.freedesktop.UPower.PowerProfiles.service"
+    install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.conf' "${pkgdir}/usr/share/dbus-1/system.d/org.freedesktop.UPower.PowerProfiles.conf"
+    install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.policy' "${pkgdir}/usr/share/polkit-1/actions/org.freedesktop.UPower.PowerProfiles.policy"
+}

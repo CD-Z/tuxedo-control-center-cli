@@ -51,7 +51,11 @@ export class DisplayBacklightWorker extends DaemonWorker {
             // Recheck workaround for late loaded drivers and drivers that are not ready although
             // already presenting an interface
             setTimeout((): void => {
-                this.writeBrightness(brightnessPercent, true);
+                try {
+                    this.writeBrightness(brightnessPercent, true);
+                } catch (err: unknown) {
+                    console.error(`DisplayBacklightWorker: Delayed brightness recheck failed => ${err}`);
+                }
             }, 2000);
         }
     }
@@ -62,7 +66,8 @@ export class DisplayBacklightWorker extends DaemonWorker {
 
     private writeBrightness(brightnessPercent: number, recheck?: boolean): void {
         this.findDrivers();
-        // Try all possible drivers to be on the safe side, fail silently if they do not work
+        // Try all possible drivers to be on the safe side
+        let writeError: unknown;
         for (const controller of this.controllers) {
             let brightnessRaw: number;
             try {
@@ -86,7 +91,11 @@ export class DisplayBacklightWorker extends DaemonWorker {
                 console.error(
                     `DisplayBacklightWorker: Failed to set display brightness to ${brightnessPercent}% ('${brightnessRaw}') on ${controller.driver} => ${err}`,
                 );
+                writeError ??= err;
             }
+        }
+        if (writeError !== undefined) {
+            throw writeError;
         }
     }
 }

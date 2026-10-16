@@ -56,6 +56,7 @@ export class ODMPowerLimitWorker extends DaemonWorker {
                 }
             } else {
                 this.tccd.logLine('ODMPowerLimitWorker: Failed to write TDP values');
+                throw new Error('ODMPowerLimitWorker: Failed to write TDP values');
             }
         }
         this.tccd.dbusData.odmPowerLimitsJSON = JSON.stringify(tdpInfo);

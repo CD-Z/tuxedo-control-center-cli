@@ -4,6 +4,8 @@
 ### Added
 - Aquaris menu for Stellaris Gen8 Intel
 - CLI commands to inspect, create, and edit saved profiles through the daemon
+- Optional D-Bus power-profiles provider backed by TCC profile selection
+- Headless CLI-only Arch core package and optional power-profiles provider package
 
 ### Fixed
 - Support => Systeminfos execution path and download privileges for backup path

@@ -66,6 +66,7 @@ tuxedo-control-center
 | build-prod                   | Build service/electron/angular (release version)            |
 | build-debug                  | Build service/electron/angular (debug version)              |
 | start                        | Start electron app after build                              |
+| build-headless              | Compile the daemon without building Electron or native modules |
 | start-watch                  | Start with automatic reload on changes to angular directory |
 | tests                        | Run tests                                                   |
 
@@ -82,6 +83,27 @@ npm run start-cli -- profiles activate office
 
 The CLI reads status and profiles from the running `tccd` service. Profile activation selects an existing profile temporarily. It does not change saved AC/battery assignments, and the daemon may clear the temporary choice after a restart, power-state change, or changed saved mapping. The daemon can apply hardware settings when the profile changes.
 
+
+### Power profiles integration
+
+The daemon can expose `org.freedesktop.UPower.PowerProfiles` when the `ppd.enabled` setting is `true`. Map standard profiles to TCC profile IDs in the daemon settings JSON:
+
+```json
+{
+  "ppd": {
+    "enabled": true,
+    "profiles": {
+      "power-saver": "TCC_PROFILE_ID",
+      "balanced": "TCC_PROFILE_ID",
+      "performance": "TCC_PROFILE_ID"
+    }
+  }
+}
+```
+
+Omitted mappings use the device defaults. Set `performance` to `null` to disable that profile. Profile changes go through the daemon's normal hardware application path and Polkit authorization. TCC does not stop or replace another power-profile provider. Leave `ppd.enabled` unset or `false` to keep the provider disabled.
+
+The provider implements the modern PowerProfiles interface, including profile holds. It does not expose the legacy power-profiles-daemon name, BatteryAware, or action drivers. Holds belong to the D-Bus connection that created them and are cleared when the daemon stops or suspends. TCC will not take the modern bus name from another provider. Install only one provider for that name, then explicitly enable and start TCC after configuring valid profile mappings.
 
 ### Debugging
 Debugging of electron main and render process is configured for vscode in .vscode/launch.json

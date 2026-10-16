@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+    "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+    "https://specifications.freedesktop.org/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+    <vendor>TUXEDO Computers GmbH</vendor>
+    <vendor_url>https://www.tuxedocomputers.com/</vendor_url>
+
+    <action id="org.freedesktop.UPower.PowerProfiles.switch-profile">
+        <description>Switch the system power profile</description>
+        <message>Authentication is required to change the system power profile</message>
+        <defaults>
+            <allow_any>no</allow_any>
+            <allow_inactive>no</allow_inactive>
+            <allow_active>yes</allow_active>
+        </defaults>
+    </action>
+
+    <action id="org.freedesktop.UPower.PowerProfiles.hold-profile">
+        <description>Hold a system power profile</description>
+        <message>Authentication is required to hold a system power profile</message>
+        <defaults>
+            <allow_any>no</allow_any>
+            <allow_inactive>no</allow_inactive>
+            <allow_active>yes</allow_active>
+        </defaults>
+    </action>
+
+    <action id="org.freedesktop.UPower.PowerProfiles.configure-action">
+        <description>Configure power profile actions</description>
+        <message>Authentication is required to configure power profile actions</message>
+        <defaults>
+            <allow_any>no</allow_any>
+            <allow_inactive>no</allow_inactive>
+            <allow_active>yes</allow_active>
+        </defaults>
+    </action>
+</policyconfig>

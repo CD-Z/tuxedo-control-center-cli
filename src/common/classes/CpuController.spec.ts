@@ -56,4 +56,29 @@ describe('CpuController', (): void => {
         expect(cpu.cores[1].online.readValue()).toBe(true);
         expect(cpu.cores[1].scalingGovernor.readPath).toBe('/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor');
     });
+
+    it('should propagate failures when writing an available energy preference', (): void => {
+        const cpu = new CpuController('/sys/devices/system/cpu');
+        const core = cpu.cores[0];
+        spyOn(core.energyPerformancePreference, 'isAvailable').and.returnValue(true);
+        spyOn(core.energyPerformancePreference, 'isWritable').and.returnValue(true);
+        spyOn(core.energyPerformanceAvailablePreferences, 'isAvailable').and.returnValue(true);
+        spyOn(core.energyPerformanceAvailablePreferences, 'readValue').and.returnValue(['balance_performance']);
+        spyOn(core.energyPerformancePreference, 'writeValue').and.throwError('write failed');
+
+        expect(() => cpu.setEnergyPerformancePreference('balance_performance')).toThrowError('write failed');
+    });
+
+    it('should skip energy preferences that are not listed as available', (): void => {
+        const cpu = new CpuController('/sys/devices/system/cpu');
+        const core = cpu.cores[0];
+        spyOn(core.energyPerformancePreference, 'isAvailable').and.returnValue(true);
+        spyOn(core.energyPerformancePreference, 'isWritable').and.returnValue(true);
+        spyOn(core.energyPerformanceAvailablePreferences, 'isAvailable').and.returnValue(true);
+        spyOn(core.energyPerformanceAvailablePreferences, 'readValue').and.returnValue(['balance_performance']);
+        const writeSpy = spyOn(core.energyPerformancePreference, 'writeValue');
+
+        expect(() => cpu.setEnergyPerformancePreference('performance')).not.toThrow();
+        expect(writeSpy).not.toHaveBeenCalled();
+    });
 });

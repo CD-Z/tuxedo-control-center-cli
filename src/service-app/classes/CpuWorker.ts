@@ -210,6 +210,7 @@ export class CpuWorker extends DaemonWorker {
             }
         } catch (err: unknown) {
             console.error(`CpuWorker: applyCpuProfile failed => ${err}`);
+            throw err;
         }
     }
 
@@ -227,6 +228,7 @@ export class CpuWorker extends DaemonWorker {
             }
         } catch (err: unknown) {
             console.error(`CpuWorker: setCpuDefaultConfig failed => ${err}`);
+            throw err;
         }
     }
 

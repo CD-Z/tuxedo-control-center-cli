@@ -7,5 +7,5 @@
         "types": ["node"],
         "target": "esnext"
     },
-    "exclude": ["test.ts", "**/*.spec.ts"]
+    "exclude": ["test.ts", "**/*.spec.ts", "**/*.ppd-integration.ts", "**/*.policy-integration.ts", "ppd-test/**"]
 }

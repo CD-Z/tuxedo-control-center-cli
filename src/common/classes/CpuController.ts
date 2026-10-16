@@ -332,7 +332,7 @@ export class CpuController {
                         `CpuController: setEnergyPerformancePreference: ${performancePreference} is not supported.`,
                     );
                     this.unsupportedEnergyPreferenceValues.push(performancePreference);
-                    break;
+                    throw _err;
                 }
             }
         }

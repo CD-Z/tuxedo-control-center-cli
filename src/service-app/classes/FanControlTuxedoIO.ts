@@ -20,6 +20,7 @@
 import type { ObjWrapper } from '../../native-lib/TuxedoIOAPI';
 import { TuxedoIOAPI as ioAPI } from '../../native-lib/TuxedoIOAPI';
 import { FanControlBaseClass } from './FanControlBaseClass';
+import type { ITccFanProfile } from '../../common/models/TccFanTable';
 import { FAN_LOGIC } from './FanControlLogic';
 
 export class FanControlTuxedoIO extends FanControlBaseClass {
@@ -42,25 +43,29 @@ export class FanControlTuxedoIO extends FanControlBaseClass {
         }
     }
 
-    public async mapLogicToFans(numberInterfaces: number, reset?: boolean): Promise<boolean> {
+    public async mapLogicToFans(
+        numberInterfaces: number,
+        reset: boolean,
+        fanProfile: ITccFanProfile,
+    ): Promise<boolean> {
         if (!this.fans || this.fans.size === 0 || reset) {
             this.fans = new Map();
             const nrTemps = await this.getNumberTempsAvailable();
 
             if (numberInterfaces >= 1) {
-                this.setFan(1, FAN_LOGIC.CPU);
+                await this.setFan(1, FAN_LOGIC.CPU, fanProfile);
             }
 
             if (numberInterfaces >= 2) {
                 if (nrTemps >= 2) {
-                    this.setFan(2, FAN_LOGIC.GPU);
+                    await this.setFan(2, FAN_LOGIC.GPU, fanProfile);
                 } else {
-                    this.setFan(2, FAN_LOGIC.CPU);
+                    await this.setFan(2, FAN_LOGIC.CPU, fanProfile);
                 }
             }
 
             if (numberInterfaces >= 3) {
-                this.setFan(3, FAN_LOGIC.GPU);
+                await this.setFan(3, FAN_LOGIC.GPU, fanProfile);
             }
 
             if (this.fans.size === 0) {

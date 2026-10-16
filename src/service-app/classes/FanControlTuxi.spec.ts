@@ -22,7 +22,7 @@ const mock: typeof import('mock-fs') = require('mock-fs');
 
 import { SysFsPropertyInteger } from '../../common/classes/SysFsProperties';
 import { TUXEDODevice } from '../../common/models/DefaultProfiles';
-import type { IFanTempData } from '../../common/models/ITccFans';
+import { customFanPreset } from '../../common/models/TccFanTable';
 import { FanControlTuxi } from './FanControlTuxi';
 
 describe('FanControlTuxi', (): void => {
@@ -191,7 +191,7 @@ describe('FanControlTuxi', (): void => {
         fanApi.setHwmonPath(hwmonPath);
 
         const numberInterfaces: number = await fanApi.getNumberFanInterfaces();
-        await fanApi.mapLogicToFans(numberInterfaces, false);
+        await fanApi.mapLogicToFans(numberInterfaces, false, customFanPreset);
         await fanApi.setMapData();
 
         const fanSpeedInputMap = new Map();
@@ -248,7 +248,7 @@ describe('FanControlTuxi', (): void => {
         fanApi.setHwmonPath(hwmonPath);
 
         const numberInterfaces: number = await fanApi.getNumberFanInterfaces();
-        await fanApi.mapLogicToFans(numberInterfaces, false);
+        await fanApi.mapLogicToFans(numberInterfaces, false, customFanPreset);
         await fanApi.setMapData();
         fanApi.matchLabels();
 
