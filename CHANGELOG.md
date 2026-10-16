@@ -3,6 +3,7 @@
 ## [3.0.10] - 2026-09-16
 ### Added
 - Aquaris menu for Stellaris Gen8 Intel
+- CLI commands to inspect, create, and edit saved profiles through the daemon
 
 ### Fixed
 - Support => Systeminfos execution path and download privileges for backup path

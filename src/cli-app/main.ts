@@ -1,8 +1,10 @@
 import { TccDBusController } from '../common/classes/TccDBusController';
+import { createProfileIO } from './profile-io';
 import { runCli } from './cli';
 
 void runCli(process.argv.slice(2), {
     createClient: (): TccDBusController => new TccDBusController(),
+    createProfileIO,
     stdout: (text: string): void => { process.stdout.write(text); },
     stderr: (text: string): void => { process.stderr.write(`${text}\n`); },
 }).then((exitCode: number): void => {

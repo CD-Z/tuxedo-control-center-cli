@@ -40,13 +40,42 @@ async function runMissingBusCommand(args: string[]): Promise<ChildResult> {
 }
 
 describe('CLI process connection failure', (): void => {
-    it('reports a missing system bus without an unhandled error', async (): Promise<void> => {
-        for (const args of [['status'], ['profiles', 'activate', 'office']]) {
+    it('reports a missing system bus before reading, prompting, editing, or saving', async (): Promise<void> => {
+        for (const args of [
+            ['status'],
+            ['profiles', 'activate', 'office'],
+            ['profiles', 'show', 'office'],
+            ['profiles', 'create', 'Test', '--base', 'office'],
+            ['profiles', 'edit', 'office', '--brightness', '60'],
+        ]) {
             const result = await runMissingBusCommand(args);
             expect(result.code).toBe(1);
             expect(result.stdout).toBe('');
             expect(result.stderr).toContain('tcc-cli: Cannot connect to tccd. Ensure tccd is running.');
+            expect(result.stderr).not.toMatch(/Base number|Profile editor|Cannot read saved profiles/i);
             expect(result.stderr).not.toMatch(/Unhandled|uncaught|node:events|^\s+at /im);
+        }
+    }, 15000);
+
+    it('handles profile help and invalid flags without contacting an unavailable bus', async (): Promise<void> => {
+        for (const [args, expectedCode] of [
+            [['profiles', 'show', '--help'], 0],
+            [['profiles', 'create', '--help'], 0],
+            [['profiles', 'edit', '--help'], 0],
+            [['profiles', 'create', 'Test', '--brightness', 'bad'], 2],
+            [['profiles', 'create', 'Test', '--editor', '--description', 'bad'], 2],
+        ] as const) {
+            const result = await runMissingBusCommand([...args]);
+            expect(result.code).toBe(expectedCode);
+            expect(result.stderr).not.toContain('tcc-cli: Cannot connect to tccd.');
+            expect(result.stderr).not.toMatch(/Unhandled|uncaught|node:events|^\s+at /im);
+            if (expectedCode === 0) {
+                expect(result.stderr).toBe('');
+                expect(result.stdout).toContain('Profile commands:');
+            } else {
+                expect(result.stdout).toBe('');
+                expect(result.stderr).toContain('tcc-cli: Invalid command.');
+            }
         }
     }, 15000);
 });
