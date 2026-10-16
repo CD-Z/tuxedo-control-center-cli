@@ -139,19 +139,15 @@ function exitIfProcessExists(): void {
         app.exit(0);
     }
 }
-
 async function startDbusAndInit(): Promise<void> {
     const dbusInitialized: boolean = await tccDBus.init();
     if (!dbusInitialized) {
-        setTimeout((): void => {
-            startDbusAndInit();
-        }, 3000);
+        app.exit(0);
         return;
     }
     initTray();
     initMain();
 }
-
 async function initTray(): Promise<void> {
     tray.state.tccGUIVersion = `v${app.getVersion()}`;
     tray.state.isAutostartTrayInstalled = isAutostartTrayInstalled();

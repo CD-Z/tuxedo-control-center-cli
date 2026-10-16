@@ -19,7 +19,7 @@
 
 import type { ChargeType } from '../../common/classes/PowerSupplyController';
 import { DbusAPIFunctions } from '../../common/models/IDbusAPI';
-import { TccDBusController } from './dbusController';
+import { TccDBusController } from '../../common/classes/TccDBusController';
 
 export const tccDBus = new TccDBusController();
 

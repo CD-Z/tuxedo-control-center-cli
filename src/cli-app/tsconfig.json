@@ -1,0 +1,13 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "../../dist/tuxedo-control-center/cli-app",
+        "rootDir": "../",
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "types": ["node"],
+        "target": "esnext"
+    },
+    "include": ["./**/*.ts"],
+    "exclude": ["**/*.spec.ts"]
+}

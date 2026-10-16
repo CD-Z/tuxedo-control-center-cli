@@ -19,9 +19,7 @@
 
 import { Mutex } from 'async-mutex';
 import * as dbus from 'dbus-next';
-import { app } from 'electron';
-// todo: ChargeType is not used as a type here and thus can not have the type keyword, needs to be fixed
-import { ChargeType } from '../../common/classes/PowerSupplyController';
+import { ChargeType } from './PowerSupplyController';
 import type { TDPInfo } from '../../native-lib/TuxedoIOAPI';
 
 export class TccDBusController {
@@ -49,7 +47,6 @@ export class TccDBusController {
             return true;
         } catch (err: unknown) {
             console.error(`dbusController: init failed => ${err}`);
-            app.exit(0);
             return false;
         }
     }
