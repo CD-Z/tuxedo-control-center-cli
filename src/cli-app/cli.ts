@@ -2,13 +2,13 @@ import type { TccDBusController } from '../common/classes/TccDBusController';
 import { TUXEDODevice } from '../common/models/DefaultProfiles';
 import type { ITccProfile } from '../common/models/TccProfile';
 
-export type ReadOnlyClient = Pick<
+export type CliClient = Pick<
     TccDBusController,
-    'init' | 'dbusAvailable' | 'tccdVersion' | 'getDeviceJSON' | 'getProfilesJSON' | 'getActiveProfileJSON' | 'disconnect'
+    'init' | 'dbusAvailable' | 'tccdVersion' | 'getDeviceJSON' | 'getProfilesJSON' | 'getActiveProfileJSON' | 'setTempProfileById' | 'disconnect'
 >;
 
 export interface CliDependencies {
-    createClient(): ReadOnlyClient;
+    createClient(): CliClient;
     stdout(text: string): void;
     stderr(text: string): void;
 }
@@ -19,6 +19,8 @@ const usage = [
     '  status          Show daemon and active profile status',
     '  profiles list   List available profiles',
     '  profiles current  Show the active profile',
+    '  profiles activate <id>  Temporarily activate an existing profile',
+    '  Temporary selection can apply hardware settings through tccd, does not change saved power-state assignments, and may be cleared by a daemon restart, power-state change, or changed saved mapping.',
 ].join('\n') + '\n';
 
 
@@ -63,7 +65,7 @@ function displayProfile(profile: ITccProfile): string {
     return `${profile.id}\t${profile.name}\n`;
 }
 
-async function connect(client: ReadOnlyClient): Promise<void> {
+async function connect(client: CliClient): Promise<void> {
     if (!(await client.init()) || !(await client.dbusAvailable())) {
         throw new Error('tcc-cli: Cannot connect to tccd. Ensure tccd is running.');
     }
@@ -85,17 +87,37 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
             ? 'profiles-list'
             : argv.length === 2 && argv[0] === 'profiles' && argv[1] === 'current'
                 ? 'profiles-current'
-                : undefined;
+                : argv.length === 3 && argv[0] === 'profiles' && argv[1] === 'activate' &&
+                    argv[2].length > 0 && !argv[2].startsWith('-')
+                    ? 'profiles-activate'
+                    : undefined;
 
     if (!command) {
         dependencies.stderr(`tcc-cli: Invalid command.\n${usage}`);
         return 2;
     }
 
-    let client: ReadOnlyClient | undefined;
+    let client: CliClient | undefined;
     try {
         client = dependencies.createClient();
         await connect(client);
+
+        if (command === 'profiles-activate') {
+            const profileId = argv[2];
+            const profiles = parseProfiles(await client.getProfilesJSON(), 'profile list') as ITccProfile[];
+            if (!profiles.some((profile): boolean => profile.id === profileId)) {
+                throw new Error(`tcc-cli: Unknown profile ID: ${profileId}.`);
+            }
+            if (await client.setTempProfileById(profileId) !== true) {
+                throw new Error(`tcc-cli: tccd rejected profile activation: ${profileId}.`);
+            }
+            const activeProfile = parseProfiles(await client.getActiveProfileJSON(), 'active profile') as ITccProfile;
+            if (activeProfile.id !== profileId) {
+                throw new Error(`tcc-cli: tccd did not activate profile: ${profileId}.`);
+            }
+            dependencies.stdout(`Activated temporary profile: ${activeProfile.name} [${activeProfile.id}]\n`);
+            return 0;
+        }
 
         if (command === 'profiles-list') {
             const profiles = parseProfiles(await client.getProfilesJSON(), 'profile list') as ITccProfile[];

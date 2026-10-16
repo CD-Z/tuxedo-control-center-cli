@@ -18,7 +18,7 @@ tuxedo-control-center
 |  |--ng-app            Angular GUI (aka electron renderer)
 |  |--e-app             Electron main
 |  |--service-app       Daemon part (Node 24)
-|  |--cli-app           Read-only command-line client
+|  |--cli-app           Command-line client
 |  |--common            Common shared sources
 |  |  |--classes
 |  |  |--models
@@ -69,7 +69,7 @@ tuxedo-control-center
 | start-watch                  | Start with automatic reload on changes to angular directory |
 | tests                        | Run tests                                                   |
 
-### Read-only CLI
+### CLI
 Build and run the CLI from the repository root:
 
 ```sh
@@ -77,9 +77,10 @@ npm run build-cli
 npm run start-cli -- status
 npm run start-cli -- profiles list
 npm run start-cli -- profiles current
+npm run start-cli -- profiles activate office
 ```
 
-The CLI reads status and profiles from the running `tccd` service. It does not start the daemon or change hardware settings.
+The CLI reads status and profiles from the running `tccd` service. Profile activation selects an existing profile temporarily. It does not change saved AC/battery assignments, and the daemon may clear the temporary choice after a restart, power-state change, or changed saved mapping. The daemon can apply hardware settings when the profile changes.
 
 
 ### Debugging

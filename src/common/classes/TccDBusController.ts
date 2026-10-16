@@ -31,18 +31,41 @@ export class TccDBusController {
     private dbusStatus: boolean = true;
     private mutex: Mutex = new Mutex();
     private dbusTimeout: boolean = false;
-
+    private transportFailed: boolean = false;
+    private transportFailure: Promise<false>;
+    private failTransport: () => void = (): void => undefined;
     constructor() {
+        this.transportFailure = new Promise<false>((resolve): void => {
+            this.failTransport = (): void => resolve(false);
+        });
         try {
             this.bus = dbus.systemBus();
+            this.bus.on('error', (err: unknown): void => {
+                this.transportFailed = true;
+                this.dbusStatus = false;
+                this.failTransport();
+                console.error(`dbusController: connection failed => ${err}`);
+            });
         } catch (err: unknown) {
+            this.transportFailed = true;
+            this.dbusStatus = false;
+            this.failTransport();
             console.error(`dbusController: constructor failed => ${err}`);
         }
     }
 
     async init(): Promise<boolean> {
+        if (this.transportFailed) {
+            return false;
+        }
         try {
-            const proxyObject = await this.bus.getProxyObject(this.busName, this.path);
+            const proxyObject = await Promise.race([
+                this.bus.getProxyObject(this.busName, this.path),
+                this.transportFailure,
+            ]);
+            if (proxyObject === false || this.transportFailed) {
+                return false;
+            }
             this.interface = proxyObject.getInterface(this.interfaceName);
             return true;
         } catch (err: unknown) {
@@ -50,6 +73,7 @@ export class TccDBusController {
             return false;
         }
     }
+
 
     async dbusAvailable(): Promise<boolean> {
         try {

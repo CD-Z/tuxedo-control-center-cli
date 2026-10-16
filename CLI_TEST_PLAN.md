@@ -2,36 +2,28 @@
 
 ## Purpose
 
-Verify that the read-only TUXEDO Control Center CLI builds and can inspect the running `tccd` service on a TUXEDO laptop. The CLI must not start or stop services, request elevated privileges, or change profiles or hardware settings.
+Verify that the CLI can inspect the running `tccd` service and temporarily select an existing profile on a TUXEDO laptop. Profile selection can cause tccd to apply hardware settings. The CLI does not start or stop services, request elevated privileges, or change saved profile assignments.
 
 ## Before testing
 
 - Use a TUXEDO laptop with the project checkout and dependencies installed.
-- Run the commands from the repository root.
-- Do not use `sudo` for the CLI checks. Do not start, stop, or restart `tccd` for this test.
-- Check whether the daemon is already running:
+- Run commands from the repository root. Do not use `sudo` for CLI checks.
+- Do not start, stop, or restart `tccd` for this test.
+- Check whether the daemon is already running with `systemctl is-active tccd`. If it is not active, record that state and skip live-daemon tests.
+- Keep AC/battery state stable during profile activation checks.
+- Record the laptop model, distribution, Node.js version and daemon state. Do not include serial numbers or other identifying hardware data.
 
-  ```sh
-  systemctl is-active tccd
-  ```
+## Build and automated tests
 
-  If it is not `active`, skip the live-daemon cases. Record the state and do not start the service just for this test. The CLI error-path checks can still run.
-
-- Record the laptop model, distribution, Node.js version, and daemon state in the results section. Avoid including serial numbers or other identifying hardware data.
-
-## Build and automated test
-
-From the repository root, run:
+Run:
 
 ```sh
 npm run build-cli
-npm run test-cli
+npm run build-electron
+npm run test-common && npm run test-service-app && npm run test-cli
 ```
 
-Pass criteria:
-
-- `build-cli` exits successfully and emits `dist/tuxedo-control-center/cli-app/cli-app/main.js`.
-- `test-cli` exits successfully with no failed specs.
+Pass criteria: builds exit successfully and each test suite reports no failed specs.
 
 ## Help and argument handling
 
@@ -40,14 +32,16 @@ Run:
 ```sh
 npm run start-cli -- --help
 npm run start-cli -- profiles list extra
+npm run start-cli -- profiles activate
 ```
 
 Pass criteria:
 
-- Help exits with code `0`, prints usage and the `status`, `profiles list`, and `profiles current` commands to stdout, and does not require a running daemon.
-- The extra-argument command exits with code `2`, prints an invalid-command usage error to stderr, and does not attempt a daemon connection.
+- Help exits 0, prints `status`, `profiles list`, `profiles current`, and `profiles activate <id>`, and does not require a running daemon.
+- Both invalid commands exit 2, print usage to stderr and do not connect to tccd.
+- `npm run` may print its own banners. For exact CLI streams and exit codes, use the compiled entry directly as shown in the unavailable-daemon check.
 
-## Live read-only inspection
+## Live reads
 
 Run these only if `tccd` was already active before testing:
 
@@ -57,31 +51,44 @@ npm run start-cli -- profiles list
 npm run start-cli -- profiles current
 ```
 
-Pass criteria:
+Each command should exit 0 with empty CLI stderr. `status` shows the daemon version, device and active profile. `profiles list` prints all IDs and names in daemon order. `profiles current` shows the active ID and name.
 
-- Each command exits with code `0` and leaves stderr empty.
-- `status` prints `Daemon: available`, a nonempty version, a device label, and `Active profile: <name> [<id>]`.
-- `profiles list` prints the `ID\tNAME` header and one row per profile, in daemon order. IDs are nonempty, and names are the strings returned by the daemon.
-- `profiles current` prints the active profile under the same header. Its ID and name match one row from `profiles list`.
-- Names and IDs match the daemon's profile data. Built-in names may be untranslated.
-- The CLI does not prompt for a password, request root privileges, or report that it changed a profile or hardware setting.
+## Temporary profile activation
 
-If the GUI is already open, its displayed active profile can be compared with `profiles current`. Do not open or change GUI settings solely for this check.
-
-## Unavailable-daemon error path
-
-This check overrides the bus address for this CLI process only. It must not affect the laptop's system bus or running services.
+Only proceed if at least one existing alternate profile has settings you are comfortable applying. Record the current active ID first:
 
 ```sh
-DBUS_SYSTEM_BUS_ADDRESS=unix:path=/tmp/tcc-cli-test-missing-bus npm run start-cli -- status
+npm run start-cli -- profiles current
 ```
 
-Pass criteria:
+Choose a different existing ID from `profiles list`, then run:
 
-- The command exits with code `1`.
-- Stdout is empty.
-- Stderr contains `tcc-cli: Cannot connect to tccd. Ensure tccd is running.`
-- The real `tccd` service state remains unchanged.
+```sh
+npm run start-cli -- profiles activate "<chosen-id>"
+npm run start-cli -- profiles current
+npm run start-cli -- status
+```
+
+Expect `Activated temporary profile: <name> [<id>]`, then the chosen ID in `profiles current` and `status`. No elevation prompt should appear. The selection does not change saved AC/battery assignments. A daemon restart, power-state change, or changed saved mapping can clear it.
+
+Restore the original active profile by activating the ID recorded before the check:
+
+```sh
+npm run start-cli -- profiles activate "<original-id>"
+npm run start-cli -- profiles current
+```
+
+This restores the active profile, but the current API does not expose or restore whether the daemon was previously using an automatic or temporary selection. Do not restart services or edit saved profiles/configuration. If no safe alternate exists, record activation as unverified.
+
+## Isolated missing-bus regression
+
+This overrides the system bus address for one CLI process only. Run the compiled Node entry directly to avoid npm banners:
+
+```sh
+DBUS_SYSTEM_BUS_ADDRESS=unix:path=/tmp/tcc-cli-test-missing-bus node dist/tuxedo-control-center/cli-app/cli-app/main.js status
+```
+
+Pass criteria: exit 1, empty stdout, stderr contains `tcc-cli: Cannot connect to tccd. Ensure tccd is running.`, and stderr has no unhandled event or Node stack trace. The real daemon state must remain unchanged.
 
 ## Results
 
@@ -90,10 +97,8 @@ Pass criteria:
 | Laptop model / distribution |  |  |
 | Node.js version |  |  |
 | `tccd` state before testing |  |  |
-| CLI build |  |  |
-| CLI specs |  |  |
+| CLI build and automated tests |  |  |
 | Help and invalid arguments |  |  |
-| Live `status` |  |  |
-| Live `profiles list` |  |  |
-| Live `profiles current` |  |  |
-| Isolated unavailable-daemon case |  |  |
+| Live status and profile reads |  |  |
+| Temporary activation and restoration |  |  |
+| Isolated missing-bus case |  |  |
