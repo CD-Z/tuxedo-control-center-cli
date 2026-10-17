@@ -1,6 +1,6 @@
 import 'jasmine';
 import * as dbus from 'dbus-next';
-import { spawn, spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -55,12 +55,11 @@ async function startPrivateSystemBus(includeTccPolicy: boolean): Promise<Private
 `;
     await writeFile(configPath, config, { mode: 0o644 });
 
-    const daemon = spawn('dbus-daemon', [
-        '--nofork',
-        '--nopidfile',
-        '--print-address=1',
-        `--config-file=${configPath}`,
-    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const daemon = spawn(
+        'dbus-daemon',
+        ['--nofork', '--nopidfile', '--print-address=1', `--config-file=${configPath}`],
+        { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
     let stderr = '';
     daemon.stderr?.on('data', (chunk: Buffer) => {
         stderr += chunk.toString();
@@ -119,21 +118,36 @@ async function startPrivateSystemBus(includeTccPolicy: boolean): Promise<Private
     };
 }
 
-function runAsNobody(address: string, args: string[]): SpawnSyncReturns<string> {
-    return spawnSync('runuser', [
-        '-u',
-        'nobody',
-        '--',
-        'busctl',
-        `--address=${address}`,
-        ...args,
-    ], { encoding: 'utf8', timeout: 5000 });
+interface CommandResult {
+    status: number | null;
+    stdout: string;
+    stderr: string;
 }
 
-function errorText(result: SpawnSyncReturns<string>): string {
-    return `${String(result.stdout ?? '')}\n${String(result.stderr ?? '')}`;
+function runAsNobody(address: string, args: string[]): Promise<CommandResult> {
+    const { promise, resolve, reject } = Promise.withResolvers<CommandResult>();
+    const child = spawn('runuser', ['-u', 'nobody', '--', 'busctl', `--address=${address}`, ...args], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 5000,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
+        stdout += chunk;
+    });
+    child.stderr?.setEncoding('utf8').on('data', (chunk: string) => {
+        stderr += chunk;
+    });
+    child.once('error', reject);
+    child.once('close', (status) => {
+        resolve({ status, stdout, stderr });
+    });
+    return promise;
 }
 
+function errorText(result: CommandResult): string {
+    return `${result.stdout}\n${result.stderr}`;
+}
 
 function requireRoot(): void {
     if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
@@ -151,7 +165,7 @@ describe('Power Profiles system-bus policy integration', () => {
             harness = await createPowerProfilesHarness({ busAddress: privateBus.address });
             expect(harness.service.providerIsOwned).toBeTrue();
 
-            const deniedNameRequest = runAsNobody(privateBus.address, [
+            const deniedNameRequest = await runAsNobody(privateBus.address, [
                 'call',
                 'org.freedesktop.DBus',
                 '/org/freedesktop/DBus',
@@ -164,7 +178,7 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(deniedNameRequest.status).not.toBe(0);
             expect(errorText(deniedNameRequest)).toContain('AccessDenied');
 
-            const introspection = runAsNobody(privateBus.address, [
+            const introspection = await runAsNobody(privateBus.address, [
                 'introspect',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -172,7 +186,7 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(introspection.status).toBe(0, errorText(introspection));
             expect(errorText(introspection)).toContain(POWER_PROFILES_INTERFACE);
 
-            const active = runAsNobody(privateBus.address, [
+            const active = await runAsNobody(privateBus.address, [
                 'get-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -182,7 +196,7 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(active.status).toBe(0, errorText(active));
             expect(errorText(active)).toContain('balanced');
 
-            const unrelatedCall = runAsNobody(privateBus.address, [
+            const unrelatedCall = await runAsNobody(privateBus.address, [
                 'call',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -192,7 +206,7 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(unrelatedCall.status).not.toBe(0);
             expect(errorText(unrelatedCall)).toContain('AccessDenied');
 
-            const switchResult = runAsNobody(privateBus.address, [
+            const switchResult = await runAsNobody(privateBus.address, [
                 'set-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -203,10 +217,12 @@ describe('Power Profiles system-bus policy integration', () => {
             ]);
             expect(switchResult.status).toBe(0, errorText(switchResult));
             expect(harness.appliedProfiles.at(-1)).toBe('test-power-saver');
-            expect(harness.authorizationCalls.at(-1)?.action).toBe('org.freedesktop.UPower.PowerProfiles.switch-profile');
+            expect(harness.authorizationCalls.at(-1)?.action).toBe(
+                'org.freedesktop.UPower.PowerProfiles.switch-profile',
+            );
             expect(harness.authorizationCalls.at(-1)?.sender).toMatch(/^:[A-Za-z0-9_-]+\./);
 
-            const reread = runAsNobody(privateBus.address, [
+            const reread = await runAsNobody(privateBus.address, [
                 'get-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -246,7 +262,7 @@ describe('Power Profiles system-bus policy integration', () => {
                 },
             });
 
-            const nonRootReplacement = runAsNobody(privateBus.address, [
+            const nonRootReplacement = await runAsNobody(privateBus.address, [
                 'call',
                 TCC_NAME,
                 TCC_PATH,
@@ -263,14 +279,16 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(harness.configurationReplacements).toEqual([]);
 
             rootClient = await openBus(privateBus.address);
-            const rootReply = await rootClient.call(new dbus.Message({
-                destination: TCC_NAME,
-                path: TCC_PATH,
-                interface: TCC_INTERFACE,
-                member: 'ReplaceProfileConfiguration',
-                signature: 'ss',
-                body: [settingsJSON, profilesJSON],
-            }));
+            const rootReply = await rootClient.call(
+                new dbus.Message({
+                    destination: TCC_NAME,
+                    path: TCC_PATH,
+                    interface: TCC_INTERFACE,
+                    member: 'ReplaceProfileConfiguration',
+                    signature: 'ss',
+                    body: [settingsJSON, profilesJSON],
+                }),
+            );
             expect(rootReply?.type).toBe(dbus.MessageType.METHOD_RETURN);
             expect(rootReply?.signature).toBe('b');
             expect(rootReply?.body).toEqual([true]);

@@ -195,7 +195,15 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
                     this.config,
                 ),
             powerSource: determineState,
-            applyProfile: (profile) => this.applyProfileWithinTransition(profile),
+            applyProfile: async (profile, settings) => {
+                const previousSettings = this.settings;
+                this.settings = settings;
+                try {
+                    await this.applyProfileWithinTransition(profile);
+                } finally {
+                    this.settings = previousSettings;
+                }
+            },
             persistSettings: async (settings) => {
                 await this.config.writeSettingsAsync(settings);
                 this.settings = settings;
@@ -1248,21 +1256,23 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
     private async forwardConfigurationToRunningDaemon(settingsPath: string, profilesPath: string): Promise<boolean> {
         const bus = dbus.systemBus();
         try {
-            const owner = await bus.call(
-                new dbus.Message({
-                    destination: 'org.freedesktop.DBus',
-                    path: '/org/freedesktop/DBus',
-                    interface: 'org.freedesktop.DBus',
-                    member: 'GetNameOwner',
-                    signature: 's',
-                    body: [TCC_NAME],
-                }),
-            );
-            if (
-                owner?.type === dbus.MessageType.ERROR &&
-                owner.errorName === 'org.freedesktop.DBus.Error.NameHasNoOwner'
-            ) {
-                return false;
+            let owner: dbus.Message | null;
+            try {
+                owner = await bus.call(
+                    new dbus.Message({
+                        destination: 'org.freedesktop.DBus',
+                        path: '/org/freedesktop/DBus',
+                        interface: 'org.freedesktop.DBus',
+                        member: 'GetNameOwner',
+                        signature: 's',
+                        body: [TCC_NAME],
+                    }),
+                );
+            } catch (error) {
+                if (error instanceof dbus.DBusError && error.type === 'org.freedesktop.DBus.Error.NameHasNoOwner') {
+                    return false;
+                }
+                throw error;
             }
             if (owner?.type !== dbus.MessageType.METHOD_RETURN || owner.signature !== 's') {
                 throw new Error('Could not determine whether tccd owns its D-Bus name');
@@ -1383,9 +1393,13 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
         }
     }
 
-    public async updateSettings(mutator: (settings: ITccSettings) => void): Promise<void> {
+    public async updateSettings(
+        mutator: (settings: ITccSettings) => void,
+        options: { allowVolatileOnRejectedConfig?: boolean } = {},
+    ): Promise<void> {
         await this.profileMutex.runExclusive(async (): Promise<void> => {
-            if (this.configurationReloadRejected) {
+            const allowVolatileOnRejectedConfig = options.allowVolatileOnRejectedConfig === true;
+            if (this.configurationReloadRejected && !allowVolatileOnRejectedConfig) {
                 throw new Error('Settings cannot be persisted until the rejected configuration is repaired');
             }
             const candidate = JSON.parse(JSON.stringify(this.settings)) as ITccSettings;
@@ -1397,7 +1411,9 @@ export class TuxedoControlCenterDaemon extends SingleProcess {
             if (selection?.isAvailable) {
                 selection.validateSettingsUpdate(candidate);
             }
-            await this.config.writeSettingsAsync(candidate);
+            if (!this.configurationReloadRejected || !allowVolatileOnRejectedConfig) {
+                await this.config.writeSettingsAsync(candidate);
+            }
             this.settings = candidate;
             if (selection?.isAvailable) {
                 selection.commitSettingsUpdate(candidate);

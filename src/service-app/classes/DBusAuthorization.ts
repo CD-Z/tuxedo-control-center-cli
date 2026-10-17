@@ -125,14 +125,19 @@ export class DBusAuthorization {
         if (
             reply === null ||
             reply.type !== dbus.MessageType.METHOD_RETURN ||
-            reply.signature !== 'bba{ss}' ||
-            reply.body.length !== 3 ||
-            typeof reply.body[0] !== 'boolean' ||
-            typeof reply.body[1] !== 'boolean'
+            reply.signature !== '(bba{ss})' ||
+            reply.body.length !== 1 ||
+            !Array.isArray(reply.body[0]) ||
+            reply.body[0].length !== 3 ||
+            typeof reply.body[0][0] !== 'boolean' ||
+            typeof reply.body[0][1] !== 'boolean' ||
+            reply.body[0][2] === null ||
+            typeof reply.body[0][2] !== 'object' ||
+            Array.isArray(reply.body[0][2])
         ) {
             throw new DBusAuthorizationError('access-denied', 'Polkit returned an invalid authorization response');
         }
-        if (reply.body[0] !== true) {
+        if (reply.body[0][0] !== true) {
             throw new DBusAuthorizationError('access-denied', 'The caller is not authorized for this operation');
         }
     }

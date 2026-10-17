@@ -43,8 +43,8 @@ class FakeAuthorizationBus implements DBusAuthorizationBus {
         return new dbus.Message({
             type: dbus.MessageType.METHOD_RETURN,
             replySerial: '1',
-            signature: 'bba{ss}',
-            body: [authorized, false, {}],
+            signature: '(bba{ss})',
+            body: [[authorized, false, {}]],
         });
     }
 }
@@ -76,8 +76,8 @@ describe('DBusAuthorization', () => {
         bus.response = new dbus.Message({
             type: dbus.MessageType.METHOD_RETURN,
             replySerial: '1',
-            signature: 'bba{ss}',
-            body: [false, true, {}],
+            signature: '(bba{ss})',
+            body: [[false, true, {}]],
         });
         const authorization = new DBusAuthorization(bus);
 
@@ -90,6 +90,20 @@ describe('DBusAuthorization', () => {
 
         expect(rejection).toEqual(jasmine.any(DBusAuthorizationError));
         expect((rejection as DBusAuthorizationError).code).toBe('access-denied');
+    });
+    it('rejects malformed Polkit outer and tuple shapes', async () => {
+        for (const body of [[true, false, {}], [[true, false]], [[true, 'false', {}]]]) {
+            const bus = new FakeAuthorizationBus();
+            bus.response = new dbus.Message({
+                type: dbus.MessageType.METHOD_RETURN,
+                replySerial: '1',
+                signature: '(bba{ss})',
+                body,
+            });
+            await expectAsync(new DBusAuthorization(bus).check(':1.9', 'com.example.switch-profile')).toBeRejectedWith(
+                jasmine.any(DBusAuthorizationError),
+            );
+        }
     });
 
     it('fails closed when Polkit cannot be reached', async () => {
