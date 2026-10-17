@@ -1,8 +1,6 @@
 # CLI test plan
 
-## Purpose
-
-Verify that the CLI can inspect daemon profiles, create and edit saved profiles, and temporarily select a profile on a TUXEDO laptop. Temporary selection may apply hardware settings through tccd. Saved-profile writes use the installed privileged helper and may trigger a daemon reload that reapplies the current profile.
+Verify that the CLI can inspect daemon profiles, create and edit saved profiles, and temporarily select a profile on a TUXEDO laptop. Profile selectors accept an exact ID or a unique, case-sensitive name. Exact IDs take precedence. Temporary selection may apply hardware settings through tccd and may require authorization. Saved-profile writes use the installed privileged helper and daemon configuration replacement; the daemon may reapply the current profile to hardware.
 
 ## Before testing
 
@@ -19,11 +17,15 @@ Run:
 
 ```sh
 npm run build-cli
+npm run esbuild-cli
 npm run build-electron
+npx tsc -p ./src/service-app --noEmit
 npm run test-common && npm run test-service-app && npm run test-cli
+npm run test-ppd-integration
+npm run test-ppd-policy
 ```
 
-Pass criteria: builds exit successfully and each test suite reports no failed specs.
+Pass criteria: builds exit successfully and each runnable test suite reports no failed specs. The provider policy suite requires root; on other users its root-only specs remain pending and unverified. Do not rerun the CLI or test session under sudo.
 
 ## Help and argument handling
 
@@ -31,11 +33,14 @@ Run:
 
 ```sh
 npm run start-cli -- --help
+npm run start-cli -- profiles --help
+npm run start-cli -- status --help
 npm run start-cli -- profiles show --help
 npm run start-cli -- profiles create --help
 npm run start-cli -- profiles edit --help
 npm run start-cli -- profiles list extra
 npm run start-cli -- profiles activate
+npm run start-cli -- profiles create Test --cpu-cores 0
 npm run start-cli -- profiles create Test --brightness invalid
 npm run start-cli -- profiles edit id --editor --description invalid
 ```
@@ -44,7 +49,7 @@ Pass criteria:
 
 - Help exits 0 and lists all commands, including `profiles show`, `profiles create`, and `profiles edit`.
 - `profiles show --help`, `profiles create --help`, and `profiles edit --help` exit 0 without connecting or opening an editor.
-- Invalid command forms and setting values exit 2, print usage to stderr and do not connect to tccd.
+- Invalid values exit 2 with an option-specific diagnostic and no help screen. Syntax errors exit 2 with a specific reason and one nearest-help hint. Both fail before connecting to tccd.
 - `npm run` may print its own banners. For exact CLI streams and exit codes, use the compiled entry directly as shown in the unavailable-daemon check.
 
 ## Live reads

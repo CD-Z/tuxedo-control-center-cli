@@ -40,7 +40,6 @@ interface MemoryProfileIO extends ProfileIO {
     editor?: (json: string) => Promise<string | undefined>;
 }
 
-
 function makeProfile(id: string, name: string): ITccProfile {
     const profile = structuredClone(defaultCustomProfile);
     profile.id = id;
@@ -97,9 +96,9 @@ async function execute(
     let stderr = '';
     let activationCalls = 0;
     const client = {
-        init: async (): Promise<boolean> => typeof values.init === 'function' ? values.init() : values.init ?? true,
+        init: async (): Promise<boolean> => (typeof values.init === 'function' ? values.init() : (values.init ?? true)),
         dbusAvailable: async (): Promise<boolean> =>
-            typeof values.available === 'function' ? values.available() : values.available ?? true,
+            typeof values.available === 'function' ? values.available() : (values.available ?? true),
         tccdVersion: async (): Promise<string> => values.version ?? 'test-version',
         getDeviceJSON: async (): Promise<string> => values.device ?? '1',
         getProfilesJSON: async (): Promise<string> => {
@@ -109,16 +108,17 @@ async function execute(
             return values.profiles ?? '[]';
         },
         getActiveProfileJSON: async (): Promise<string> => values.activeProfile ?? '{"id":"office","name":"Office"}',
-        getDefaultProfilesJSON: async (): Promise<string> =>
-            values.defaultProfiles ?? JSON.stringify([builtInProfile]),
-        getDefaultValuesProfileJSON: async (): Promise<string> => values.defaultValuesProfile ??
+        getDefaultProfilesJSON: async (): Promise<string> => values.defaultProfiles ?? JSON.stringify([builtInProfile]),
+        getDefaultValuesProfileJSON: async (): Promise<string> =>
+            values.defaultValuesProfile ??
             JSON.stringify({ cpu: { onlineCores: 8, scalingMinFrequency: 400_000, scalingMaxFrequency: 4_000_000 } }),
         getIsX11: async (): Promise<number> => values.isX11 ?? 1,
-        getDisplayModesJSON: async (): Promise<string> => JSON.stringify({
-            displayName: 'test',
-            activeMode: { xResolution: 1920, yResolution: 1080, refreshRates: [60] },
-            displayModes: [{ xResolution: 1920, yResolution: 1080, refreshRates: [60] }],
-        }),
+        getDisplayModesJSON: async (): Promise<string> =>
+            JSON.stringify({
+                displayName: 'test',
+                activeMode: { xResolution: 1920, yResolution: 1080, refreshRates: [60] },
+                displayModes: [{ xResolution: 1920, yResolution: 1080, refreshRates: [60] }],
+            }),
         getFansOffAvailable: async (): Promise<boolean> => values.fansOffAvailable ?? true,
         getFansMinSpeed: async (): Promise<number> => values.fansMinSpeed ?? 20,
         odmProfilesAvailable: async (): Promise<string[]> => values.odmNames ?? ['Balanced'],
@@ -134,16 +134,19 @@ async function execute(
             if (values.rejectSetter) {
                 throw new Error('setter failed');
             }
-            if (!Object.prototype.hasOwnProperty.call(values, 'activeProfile') &&
-                (!Object.prototype.hasOwnProperty.call(values, 'setterResult') || values.setterResult === true)) {
-                const selected = (JSON.parse(values.profiles ?? '[]') as Array<{ id: string; name: string }>)
-                    .find((profile): boolean => profile.id === id);
+            if (
+                !Object.prototype.hasOwnProperty.call(values, 'activeProfile') &&
+                (!Object.prototype.hasOwnProperty.call(values, 'setterResult') || values.setterResult === true)
+            ) {
+                const selected = (JSON.parse(values.profiles ?? '[]') as Array<{ id: string; name: string }>).find(
+                    (profile): boolean => profile.id === id,
+                );
                 if (selected) {
                     values.activeProfile = JSON.stringify(selected);
                 }
             }
             return Object.prototype.hasOwnProperty.call(values, 'setterResult')
-                ? values.setterResult as boolean
+                ? (values.setterResult as boolean)
                 : true;
         },
         disconnect: (): void => undefined,
@@ -151,10 +154,34 @@ async function execute(
     const code = await runCli(argv, {
         createClient: (): CliClient => client,
         createProfileIO: (): ProfileIO => profileIO,
-        stdout: (text: string): void => { stdout += text; },
-        stderr: (text: string): void => { stderr += text; },
+        stdout: (text: string): void => {
+            stdout += text;
+        },
+        stderr: (text: string): void => {
+            stderr += text;
+        },
     });
     return { code, stdout, stderr, profileIO, activationCalls };
+}
+
+async function executeWithoutFactories(argv: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+    let stdout = '';
+    let stderr = '';
+    const code = await runCli(argv, {
+        createClient: (): CliClient => {
+            throw new Error('client must not be created');
+        },
+        createProfileIO: (): ProfileIO => {
+            throw new Error('profile I/O must not be created');
+        },
+        stdout: (text: string): void => {
+            stdout += text;
+        },
+        stderr: (text: string): void => {
+            stderr += text;
+        },
+    });
+    return { code, stdout, stderr };
 }
 
 describe('runCli', (): void => {
@@ -172,7 +199,6 @@ describe('runCli', (): void => {
         expect(result.stdout).toContain('Device: 987654\n');
         expect(result.stderr).toBe('');
     });
-
 
     it('lists profiles in daemon order with their original names', async (): Promise<void> => {
         const result = await execute(['profiles', 'list'], {
@@ -203,37 +229,96 @@ describe('runCli', (): void => {
         expect(result.code).toBe(0);
         expect(result.stdout).toBe('Activated temporary profile: Shared [Second]\n');
     });
+    it('activates unique names by canonical ID and gives exact IDs precedence', async (): Promise<void> => {
+        const named = await execute(['profiles', 'activate', 'Quiet "profile"'], {
+            profiles: '[{"id":"quiet-id","name":"Quiet \\"profile\\""}]',
+        });
+        expect(named.code).toBe(0);
+        expect(named.stdout).toBe('Activated temporary profile: Quiet "profile" [quiet-id]\n');
+        expect(named.stderr).toBe('');
 
+        const collision = await execute(['profiles', 'activate', 'shared'], {
+            profiles: '[{"id":"shared","name":"First"},{"id":"second","name":"shared"}]',
+        });
+        expect(collision.code).toBe(0);
+        expect(collision.stdout).toBe('Activated temporary profile: First [shared]\n');
+    });
 
-    it('does not select an unknown profile ID', async (): Promise<void> => {
+    it('rejects ambiguous, partial, and case-mismatched activation names without selecting', async (): Promise<void> => {
+        const ambiguous = await execute(['profiles', 'activate', 'Shared'], {
+            profiles: '[{"id":"one","name":"Shared"},{"id":"two","name":"Shared"}]',
+        });
+        expect(ambiguous.code).toBe(1);
+        expect(ambiguous.stdout).toBe('');
+        expect(ambiguous.stderr).toBe(
+            'tcc-cli: Ambiguous profile name: "Shared". Matching IDs: "one", "two". Use an ID.',
+        );
+        expect(ambiguous.activationCalls).toBe(0);
+
+        for (const selector of ['quiet profile', 'Quiet']) {
+            const result = await execute(['profiles', 'activate', selector], {
+                profiles: '[{"id":"quiet","name":"Quiet profile"}]',
+            });
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe(
+                `tcc-cli: Unknown profile: ${JSON.stringify(selector)}. Use "tcc-cli profiles list" to see available IDs and names.`,
+            );
+            expect(result.activationCalls).toBe(0);
+        }
+    });
+
+    it('reports unknown activation selectors without selecting a profile', async (): Promise<void> => {
         const result = await execute(['profiles', 'activate', 'missing'], {
             profiles: '[{"id":"office","name":"Office"}]',
         });
         expect(result.code).toBe(1);
         expect(result.stdout).toBe('');
-        expect(result.stderr).toBe('tcc-cli: Unknown profile ID: missing.');
+        expect(result.stderr).toBe(
+            'tcc-cli: Unknown profile: "missing". Use "tcc-cli profiles list" to see available IDs and names.',
+        );
+        expect(result.activationCalls).toBe(0);
     });
 
-    it('rejects an empty list as an unknown ID and malformed activation profile lists as invalid data', async (): Promise<void> => {
+    it('rejects empty activation lists as unknown and malformed or duplicate IDs as invalid', async (): Promise<void> => {
         const empty = await execute(['profiles', 'activate', 'office'], { profiles: '[]' });
         expect(empty.code).toBe(1);
         expect(empty.stdout).toBe('');
-        expect(empty.stderr).toBe('tcc-cli: Unknown profile ID: office.');
-        for (const profiles of ['{', '[{"id":"","name":"Broken"}]']) {
+        expect(empty.stderr).toBe(
+            'tcc-cli: Unknown profile: "office". Use "tcc-cli profiles list" to see available IDs and names.',
+        );
+        for (const profiles of [
+            '{',
+            '[{"id":"","name":"Broken"}]',
+            '[{"id":"same","name":"First"},{"id":"same","name":"Second"}]',
+        ]) {
             const result = await execute(['profiles', 'activate', 'office'], { profiles });
             expect(result.code).toBe(1);
             expect(result.stdout).toBe('');
             expect(result.stderr).toBe('tcc-cli: tccd returned invalid profile list data.');
+            expect(result.activationCalls).toBe(0);
         }
     });
 
     it('reports rejected, failed, or unconfirmed activation without success output', async (): Promise<void> => {
         const cases: Array<[TestClientValues, string]> = [
-            [{ profiles: '[{"id":"office","name":"Office"}]', setterResult: false }, 'tcc-cli: tccd rejected profile activation: office.'],
-            [{ profiles: '[{"id":"office","name":"Office"}]', setterResult: undefined }, 'tcc-cli: tccd rejected profile activation: office.'],
+            [
+                { profiles: '[{"id":"office","name":"Office"}]', setterResult: false },
+                'tcc-cli: tccd rejected profile activation: office.',
+            ],
+            [
+                { profiles: '[{"id":"office","name":"Office"}]', setterResult: undefined },
+                'tcc-cli: tccd rejected profile activation: office.',
+            ],
             [{ profiles: '[{"id":"office","name":"Office"}]', rejectSetter: true }, 'tcc-cli: setter failed'],
-            [{ profiles: '[{"id":"office","name":"Office"}]', activeProfile: '{}' }, 'tcc-cli: tccd returned invalid active profile data.'],
-            [{ profiles: '[{"id":"office","name":"Office"}]', activeProfile: '{"id":"quiet","name":"Quiet"}' }, 'tcc-cli: tccd did not activate profile: office.'],
+            [
+                { profiles: '[{"id":"office","name":"Office"}]', activeProfile: '{}' },
+                'tcc-cli: tccd returned invalid active profile data.',
+            ],
+            [
+                { profiles: '[{"id":"office","name":"Office"}]', activeProfile: '{"id":"quiet","name":"Quiet"}' },
+                'tcc-cli: tccd did not activate profile: office.',
+            ],
         ];
         for (const [values, message] of cases) {
             const result = await execute(['profiles', 'activate', 'office'], values);
@@ -344,7 +429,62 @@ describe('runCli', (): void => {
         expect(duplicate.stderr).toBe('tcc-cli: tccd returned invalid profile list data.');
         expect(duplicateIO.saveCalls).toBe(0);
     });
+    it('resolves create bases by exact unique name and keeps IDs ahead of names', async (): Promise<void> => {
+        const first = makeProfile('Shared', 'First');
+        const second = makeProfile('second', 'Shared');
+        first.fan.offsetFanspeed = 11;
+        second.fan.offsetFanspeed = 22;
+        const profiles = JSON.stringify([first, second]);
 
+        const exactIdIO = createMemoryProfileIO();
+        const exactId = await execute(['profiles', 'create', 'ID wins', '--base', 'Shared'], { profiles }, exactIdIO);
+        expect(exactId.code).toBe(0);
+        const exactIdCopy = (JSON.parse(exactIdIO.savedProfiles) as Array<Record<string, unknown>>)[0];
+        expect(exactIdCopy['name']).toBe('ID wins');
+        expect((exactIdCopy['fan'] as Record<string, unknown>)['offsetFanspeed']).toBe(11);
+
+        const namedBase = makeProfile('named-id', 'Quiet "base" with spaces');
+        namedBase.cpu.onlineCores = 3;
+        const namedIO = createMemoryProfileIO();
+        const named = await execute(
+            ['profiles', 'create', 'Name clone', '--base', 'Quiet "base" with spaces'],
+            { profiles: JSON.stringify([builtInProfile, namedBase]) },
+            namedIO,
+        );
+        expect(named.code).toBe(0);
+        expect(named.activationCalls).toBe(0);
+        const namedCopy = (JSON.parse(namedIO.savedProfiles) as Array<Record<string, unknown>>)[0];
+        expect(namedCopy['name']).toBe('Name clone');
+        expect((namedCopy['cpu'] as Record<string, unknown>)['onlineCores']).toBe(3);
+
+        const ambiguousIO = createMemoryProfileIO();
+        const ambiguous = await execute(
+            ['profiles', 'create', 'Copy', '--base', 'Shared'],
+            { profiles: JSON.stringify([makeProfile('one', 'Shared'), makeProfile('two', 'Shared')]) },
+            ambiguousIO,
+        );
+        expect(ambiguous.code).toBe(1);
+        expect(ambiguous.stdout).toBe('');
+        expect(ambiguous.stderr).toBe(
+            'tcc-cli: Ambiguous profile name: "Shared". Matching IDs: "one", "two". Use an ID.',
+        );
+        expect(ambiguousIO.saveCalls).toBe(0);
+
+        for (const selector of ['shared', 'Shar']) {
+            const io = createMemoryProfileIO();
+            const result = await execute(
+                ['profiles', 'create', 'Copy', '--base', selector],
+                { profiles: JSON.stringify([makeProfile('one', 'Shared')]) },
+                io,
+            );
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe(
+                `tcc-cli: Unknown profile: ${JSON.stringify(selector)}. Use "tcc-cli profiles list" to see available IDs and names.`,
+            );
+            expect(io.saveCalls).toBe(0);
+        }
+    });
 
     it('requires an explicit base off-terminal and uses or cancels the selected base', async (): Promise<void> => {
         const first = makeProfile('first', 'First');
@@ -378,68 +518,263 @@ describe('runCli', (): void => {
         expect(cancelledIO.saveCalls).toBe(0);
     });
 
-    it('shows built-ins from the daemon and custom profiles from the raw saved document', async (): Promise<void> => {
+    it('shows built-ins by ID and unique name and shows customs from raw saved JSON', async (): Promise<void> => {
         const raw = JSON.parse(JSON.stringify(makeProfile('custom with spaces', 'Custom'))) as Record<string, unknown>;
         const cpu = raw['cpu'] as Record<string, unknown>;
         delete cpu['onlineCores'];
         delete cpu['scalingMinFrequency'];
+        delete cpu['scalingMaxFrequency'];
         raw['futureSetting'] = { mode: 'untouched' };
         const io = createMemoryProfileIO(JSON.stringify([raw]));
-        const builtIn = await execute(['profiles', 'show', 'builtin'], {}, io);
-        expect(builtIn.code).toBe(0);
-        expect(builtIn.stdout).toBe(`${JSON.stringify(builtInProfile, null, 2)}\n`);
+        const builtInById = await execute(['profiles', 'show', 'builtin'], {}, io);
+        expect(builtInById.code).toBe(0);
+        expect(builtInById.stdout).toBe(`${JSON.stringify(builtInProfile, null, 2)}\n`);
         expect(io.readCalls).toBe(0);
 
-        const custom = await execute(['profiles', 'show', 'custom with spaces'], {}, io);
+        const effective = makeProfile('custom with spaces', 'Effective custom');
+        (effective.cpu as Record<string, unknown>).onlineCores = 4;
+        (effective.cpu as Record<string, unknown>).scalingMinFrequency = 900_000;
+        (effective.cpu as Record<string, unknown>).scalingMaxFrequency = 3_900_000;
+        const custom = await execute(['profiles', 'show', 'Custom'], { profiles: JSON.stringify([effective]) }, io);
         expect(custom.code).toBe(0);
         const shown = JSON.parse(custom.stdout) as Record<string, unknown>;
         expect(shown['id']).toBe('custom with spaces');
+        expect(shown['name']).toBe('Custom');
         expect(shown['futureSetting']).toEqual({ mode: 'untouched' });
         expect(Object.prototype.hasOwnProperty.call(shown['cpu'], 'onlineCores')).toBe(false);
         expect(Object.prototype.hasOwnProperty.call(shown['cpu'], 'scalingMinFrequency')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(shown['cpu'], 'scalingMaxFrequency')).toBe(false);
         expect(custom.stdout.endsWith('\n')).toBe(true);
+
+        const builtInByName = await execute(['profiles', 'show', 'Built-in'], {}, io);
+        expect(builtInByName.code).toBe(0);
+        expect(builtInByName.stdout).toBe(`${JSON.stringify(builtInProfile, null, 2)}\n`);
+        expect(io.readCalls).toBe(2);
     });
-    it('reports unknown custom IDs after inspecting the raw saved list', async (): Promise<void> => {
+
+    it('rejects unknown, partial, and case-mismatched show/edit selectors', async (): Promise<void> => {
         const io = createMemoryProfileIO('[]');
-        const result = await execute(['profiles', 'show', 'missing'], {}, io);
-        expect(result.code).toBe(1);
-        expect(result.stdout).toBe('');
-        expect(result.stderr).toBe('tcc-cli: Unknown profile ID: missing.');
-        expect(io.readCalls).toBe(1);
+        for (const selector of ['missing', 'built-in', 'Built']) {
+            const expected = `tcc-cli: Unknown profile: ${JSON.stringify(selector)}. Use "tcc-cli profiles list" to see available IDs and names.`;
+            const shown = await execute(['profiles', 'show', selector], {}, io);
+            expect(shown.code).toBe(1);
+            expect(shown.stdout).toBe('');
+            expect(shown.stderr).toBe(expected);
+
+            const edited = await execute(['profiles', 'edit', selector, '--description', 'changed'], {}, io);
+            expect(edited.code).toBe(1);
+            expect(edited.stdout).toBe('');
+            expect(edited.stderr).toBe(expected);
+        }
+        expect(io.readCalls).toBe(6);
         expect(io.saveCalls).toBe(0);
     });
 
-
-    it('rejects built-in edits and unknown custom IDs without writing', async (): Promise<void> => {
-        for (const [id, expected] of [
-            ['builtin', 'tcc-cli: Built-in profile is read-only: builtin. Create a profile with --base builtin instead.'],
-            ['missing', 'tcc-cli: Unknown profile ID: missing.'],
-        ] as const) {
-            const io = createMemoryProfileIO('[]');
-            const result = await execute(['profiles', 'edit', id, '--description', 'changed'], {}, io);
+    it('rejects built-in/custom name collisions and gives exact custom IDs precedence', async (): Promise<void> => {
+        const collision = makeProfile('custom-id', 'Built-in');
+        const ambiguousIO = createMemoryProfileIO(JSON.stringify([collision]));
+        for (const argv of [
+            ['profiles', 'show', 'Built-in'],
+            ['profiles', 'edit', 'Built-in', '--description', 'changed'],
+        ]) {
+            const result = await execute(argv, {}, ambiguousIO);
             expect(result.code).toBe(1);
             expect(result.stdout).toBe('');
-            expect(result.stderr).toBe(expected);
+            expect(result.stderr).toBe(
+                'tcc-cli: Ambiguous profile name: "Built-in". Matching IDs: "builtin", "custom-id". Use an ID.',
+            );
+        }
+        expect(ambiguousIO.saveCalls).toBe(0);
+
+        const exact = JSON.parse(JSON.stringify(makeProfile('Built-in', 'Raw profile'))) as Record<string, unknown>;
+        exact['futureSetting'] = 'raw custom';
+        const exactIO = createMemoryProfileIO(JSON.stringify([exact]));
+        const shown = await execute(['profiles', 'show', 'Built-in'], {}, exactIO);
+        expect(shown.code).toBe(0);
+        expect(JSON.parse(shown.stdout)).toEqual(exact);
+
+        const edited = await execute(
+            ['profiles', 'edit', 'Built-in', '--description', 'edited raw profile'],
+            {},
+            exactIO,
+        );
+        expect(edited.code).toBe(0);
+        const saved = JSON.parse(exactIO.savedProfiles) as Array<Record<string, unknown>>;
+        expect(saved[0]['id']).toBe('Built-in');
+        expect(saved[0]['name']).toBe('Raw profile');
+        expect(saved[0]['description']).toBe('edited raw profile');
+        expect(saved[0]['futureSetting']).toBe('raw custom');
+    });
+
+    it('lets an exact custom ID win over duplicate custom names for show and edit', async (): Promise<void> => {
+        const first = makeProfile('Shared', 'Shared');
+        const second = makeProfile('second', 'Shared');
+        const io = createMemoryProfileIO(JSON.stringify([first, second]));
+        const shown = await execute(['profiles', 'show', 'Shared'], {}, io);
+        expect(shown.code).toBe(0);
+        expect(JSON.parse(shown.stdout)['id']).toBe('Shared');
+
+        const edited = await execute(['profiles', 'edit', 'Shared', '--description', 'only first changes'], {}, io);
+        expect(edited.code).toBe(0);
+        const saved = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
+        expect(saved[0]['id']).toBe('Shared');
+        expect(saved[0]['description']).toBe('only first changes');
+        expect(saved[1]).toEqual(second);
+    });
+
+    it('edits a unique custom name, renames it, and preserves its raw document', async (): Promise<void> => {
+        const target = JSON.parse(JSON.stringify(makeProfile('stable-id', 'Original name'))) as Record<string, unknown>;
+        delete (target['cpu'] as Record<string, unknown>)['onlineCores'];
+        delete (target['cpu'] as Record<string, unknown>)['scalingMinFrequency'];
+        target['futureSetting'] = { keep: true };
+        const other = makeProfile('other-id', 'Other');
+        const io = createMemoryProfileIO(JSON.stringify([target, other]));
+        const result = await execute(['profiles', 'edit', 'Original name', '--name', 'Renamed name'], {}, io);
+        expect(result.code).toBe(0);
+        expect(result.stdout).toBe('Updated profile: Renamed name [stable-id]\n');
+        const saved = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
+        expect(saved[0]['id']).toBe('stable-id');
+        expect(saved[0]['name']).toBe('Renamed name');
+        expect(saved[0]['futureSetting']).toEqual({ keep: true });
+        expect(Object.prototype.hasOwnProperty.call(saved[0]['cpu'], 'onlineCores')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(saved[0]['cpu'], 'scalingMinFrequency')).toBe(false);
+        expect(saved[1]).toEqual(other);
+    });
+
+    it('resolves editor edits once and preserves the raw target through a rename', async (): Promise<void> => {
+        const target = JSON.parse(JSON.stringify(makeProfile('stable-id', 'Original name'))) as Record<string, unknown>;
+        const targetCpu = target['cpu'] as Record<string, unknown>;
+        delete targetCpu['onlineCores'];
+        delete targetCpu['scalingMinFrequency'];
+        delete targetCpu['scalingMaxFrequency'];
+        target['futureSetting'] = { keep: 'raw' };
+        const other = makeProfile('other-id', 'Other');
+        const io = createMemoryProfileIO(JSON.stringify([target, other]));
+        io.editor = async (json): Promise<string> => {
+            const edited = JSON.parse(json) as Record<string, unknown>;
+            edited['name'] = 'Editor rename';
+            edited['description'] = 'Edited by editor';
+            return JSON.stringify(edited);
+        };
+        const result = await execute(['profiles', 'edit', 'Original name', '--editor'], {}, io);
+        expect(result.code).toBe(0);
+        expect(result.stdout).toBe('Updated profile: Editor rename [stable-id]\n');
+        const saved = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
+        expect(saved[0]['id']).toBe('stable-id');
+        expect(saved[0]['name']).toBe('Editor rename');
+        expect(saved[0]['description']).toBe('Edited by editor');
+        expect(saved[0]['futureSetting']).toEqual({ keep: 'raw' });
+        expect(Object.prototype.hasOwnProperty.call(saved[0]['cpu'], 'onlineCores')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(saved[0]['cpu'], 'scalingMinFrequency')).toBe(false);
+        expect(Object.prototype.hasOwnProperty.call(saved[0]['cpu'], 'scalingMaxFrequency')).toBe(false);
+        expect(saved[1]).toEqual(other);
+    });
+
+    it('keeps editor-time target checks on the resolved ID', async (): Promise<void> => {
+        for (const concurrentChange of ['rename', 'remove'] as const) {
+            const target = makeProfile('stable-id', 'Original name');
+            const io = createMemoryProfileIO(JSON.stringify([target]));
+            io.editor = async (json): Promise<string> => {
+                const edited = JSON.parse(json) as Record<string, unknown>;
+                edited['description'] = 'Editor update';
+                io.savedProfiles =
+                    concurrentChange === 'remove' ? '[]' : JSON.stringify([{ ...target, name: 'Concurrent rename' }]);
+                return JSON.stringify(edited);
+            };
+            const result = await execute(['profiles', 'edit', 'Original name', '--editor'], {}, io);
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe('tcc-cli: Profile changed while editing: stable-id. Run the command again.');
             expect(io.saveCalls).toBe(0);
-            expect(io.readCalls).toBe(id === 'builtin' ? 0 : 1);
+        }
+
+        const target = makeProfile('stable-id', 'Original name');
+        const io = createMemoryProfileIO(JSON.stringify([target]));
+        io.editor = async (json): Promise<string> => {
+            const edited = JSON.parse(json) as Record<string, unknown>;
+            edited['description'] = 'Edited target';
+            const latest = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
+            latest.push(makeProfile('new-same-name', 'Original name'));
+            io.savedProfiles = JSON.stringify(latest);
+            return JSON.stringify(edited);
+        };
+        const result = await execute(['profiles', 'edit', 'Original name', '--editor'], {}, io);
+        expect(result.code).toBe(0);
+        expect(result.stdout).toBe('Updated profile: Original name [stable-id]\n');
+        const saved = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
+        expect(saved[0]['id']).toBe('stable-id');
+        expect(saved[0]['description']).toBe('Edited target');
+        expect(saved[1]['id']).toBe('new-same-name');
+        expect(saved[1]['name']).toBe('Original name');
+    });
+
+    it('rejects built-in edits by exact ID or unique name using the canonical built-in ID', async (): Promise<void> => {
+        for (const [selector, reads] of [
+            ['builtin', 0],
+            ['Built-in', 1],
+        ] as const) {
+            const io = createMemoryProfileIO('[]');
+            let editorCalls = 0;
+            io.editor = async (json): Promise<string> => {
+                editorCalls += 1;
+                return json;
+            };
+            const result = await execute(['profiles', 'edit', selector, '--description', 'changed'], {}, io);
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe(
+                'tcc-cli: Built-in profile is read-only: builtin. Create a profile with --base builtin instead.',
+            );
+            expect(io.readCalls).toBe(reads);
+            expect(editorCalls).toBe(0);
+            expect(io.saveCalls).toBe(0);
         }
     });
 
     it('applies named settings to only their stored fields and preserves zero values', async (): Promise<void> => {
         const base = makeProfile('base', 'Base');
         const io = createMemoryProfileIO();
-        const result = await execute([
-            'profiles', 'create', 'Configured', '--base=base',
-            '--brightness=0', '--refresh-rate', '60', '--webcam', 'off',
-            '--cpu-cores', '2', '--cpu-min-frequency', '600000', '--cpu-max-frequency', '3500000',
-            '--cpu-max-performance', 'off', '--cpu-energy-preference', 'performance', '--cpu-turbo', 'off',
-            '--fan-min-speed', '0', '--nvidia-power-offset', '0',
-        ], { profiles: JSON.stringify([base]) }, io);
+        const result = await execute(
+            [
+                'profiles',
+                'create',
+                'Configured',
+                '--base=base',
+                '--description',
+                '',
+                '--brightness=0',
+                '--refresh-rate',
+                '60.0',
+                '--webcam',
+                'off',
+                '--cpu-cores',
+                '2',
+                '--cpu-min-frequency',
+                '600000',
+                '--cpu-max-frequency',
+                '3500000',
+                '--cpu-max-performance',
+                'off',
+                '--cpu-energy-preference',
+                'performance',
+                '--cpu-turbo',
+                'off',
+                '--fan-min-speed',
+                '0',
+                '--fan-offset',
+                '-12',
+                '--nvidia-power-offset',
+                '0',
+            ],
+            { profiles: JSON.stringify([base]) },
+            io,
+        );
 
         expect(result.code).toBe(0);
         expect(result.stderr).toBe('');
         const saved = JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>;
         const created = saved[0];
+        expect(created['description']).toBe('');
         expect((created['display'] as Record<string, unknown>)['brightness']).toBe(0);
         expect((created['display'] as Record<string, unknown>)['useBrightness']).toBe(true);
         expect((created['display'] as Record<string, unknown>)['useRefRate']).toBe(true);
@@ -452,16 +787,30 @@ describe('runCli', (): void => {
         expect(cpu['energyPerformancePreference']).toBe('performance');
         expect(cpu['noTurbo']).toBe(true);
         expect((created['fan'] as Record<string, unknown>)['minimumFanspeed']).toBe(0);
+        expect((created['fan'] as Record<string, unknown>)['offsetFanspeed']).toBe(-12);
         expect((created['nvidiaPowerCTRLProfile'] as Record<string, unknown>)['cTGPOffset']).toBe(0);
     });
 
     it('resolves all/default/max dynamically and stores reduced maximum frequency as -1', async (): Promise<void> => {
         const base = makeProfile('base', 'Base');
         const allIO = createMemoryProfileIO();
-        const allResult = await execute([
-            'profiles', 'create', 'Dynamic', '--base', 'base',
-            '--cpu-cores', 'all', '--cpu-min-frequency', 'default', '--cpu-max-frequency', 'max',
-        ], { profiles: JSON.stringify([base]) }, allIO);
+        const allResult = await execute(
+            [
+                'profiles',
+                'create',
+                'Dynamic',
+                '--base',
+                'base',
+                '--cpu-cores',
+                'all',
+                '--cpu-min-frequency',
+                'default',
+                '--cpu-max-frequency',
+                'max',
+            ],
+            { profiles: JSON.stringify([base]) },
+            allIO,
+        );
         expect(allResult.code).toBe(0);
         const dynamic = JSON.parse(allIO.savedProfiles) as Array<Record<string, unknown>>;
         const dynamicCpu = dynamic[0]['cpu'] as Record<string, unknown>;
@@ -470,13 +819,19 @@ describe('runCli', (): void => {
         expect(Object.prototype.hasOwnProperty.call(dynamicCpu, 'scalingMaxFrequency')).toBe(false);
 
         const reducedIO = createMemoryProfileIO();
-        const reduced = await execute([
-            'profiles', 'create', 'Reduced', '--base', 'base', '--cpu-max-frequency', 'reduced',
-        ], { profiles: JSON.stringify([base]) }, reducedIO);
+        const reduced = await execute(
+            ['profiles', 'create', 'Reduced', '--base', 'base', '--cpu-max-frequency', 'reduced'],
+            { profiles: JSON.stringify([base]) },
+            reducedIO,
+        );
         expect(reduced.code).toBe(0);
         expect(
-            ((JSON.parse(reducedIO.savedProfiles) as Array<Record<string, unknown>>)[0]['cpu'] as Record<string, unknown>)
-            ['scalingMaxFrequency'],
+            (
+                (JSON.parse(reducedIO.savedProfiles) as Array<Record<string, unknown>>)[0]['cpu'] as Record<
+                    string,
+                    unknown
+                >
+            )['scalingMaxFrequency'],
         ).toBe(-1);
     });
 
@@ -493,7 +848,10 @@ describe('runCli', (): void => {
                 io,
             );
             expect(result.code).toBe(0);
-            const cpu = (JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>)[0]['cpu'] as Record<string, unknown>;
+            const cpu = (JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>)[0]['cpu'] as Record<
+                string,
+                unknown
+            >;
             expect(cpu['scalingMinFrequency']).toBe(600_000);
             expect(cpu['scalingMaxFrequency']).toBe(3_500_000);
         }
@@ -501,10 +859,21 @@ describe('runCli', (): void => {
     it('rejects inverted frequencies and settings outside device capabilities without saving', async (): Promise<void> => {
         const base = makeProfile('base', 'Base');
         const invertedIO = createMemoryProfileIO();
-        const inverted = await execute([
-            'profiles', 'create', 'Inverted', '--base', 'base',
-            '--cpu-min-frequency', '3900000', '--cpu-max-frequency', '3500000',
-        ], { profiles: JSON.stringify([base]) }, invertedIO);
+        const inverted = await execute(
+            [
+                'profiles',
+                'create',
+                'Inverted',
+                '--base',
+                'base',
+                '--cpu-min-frequency',
+                '3900000',
+                '--cpu-max-frequency',
+                '3500000',
+            ],
+            { profiles: JSON.stringify([base]) },
+            invertedIO,
+        );
         expect(inverted.code).toBe(1);
         expect(inverted.stdout).toBe('');
         expect(inverted.stderr).toContain('tcc-cli: Invalid profile setting: cpu.scalingMinFrequency:');
@@ -515,27 +884,27 @@ describe('runCli', (): void => {
             values: TestClientValues;
             expectedPath: string;
         }> = [
-                {
-                    args: ['--refresh-rate', '60'],
-                    values: { isX11: 0 },
-                    expectedPath: 'display.refreshRate',
-                },
-                {
-                    args: ['--fan-min-speed', '0'],
-                    values: { fansOffAvailable: false },
-                    expectedPath: 'fan.minimumFanspeed',
-                },
-                {
-                    args: ['--odm-profile', 'Unavailable'],
-                    values: { odmNames: ['Balanced'] },
-                    expectedPath: 'odmProfile.name',
-                },
-                {
-                    args: ['--nvidia-power-offset', '101'],
-                    values: {},
-                    expectedPath: 'nvidiaPowerCTRLProfile.cTGPOffset',
-                },
-            ];
+            {
+                args: ['--refresh-rate', '60'],
+                values: { isX11: 0 },
+                expectedPath: 'display.refreshRate',
+            },
+            {
+                args: ['--fan-min-speed', '0'],
+                values: { fansOffAvailable: false },
+                expectedPath: 'fan.minimumFanspeed',
+            },
+            {
+                args: ['--odm-profile', 'Unavailable'],
+                values: { odmNames: ['Balanced'] },
+                expectedPath: 'odmProfile.name',
+            },
+            {
+                args: ['--nvidia-power-offset', '101'],
+                values: {},
+                expectedPath: 'nvidiaPowerCTRLProfile.cTGPOffset',
+            },
+        ];
         for (const { args, values, expectedPath } of capabilityFailures) {
             const io = createMemoryProfileIO();
             const result = await execute(
@@ -550,7 +919,6 @@ describe('runCli', (): void => {
         }
     });
 
-
     it('rejects dormant CPU and Custom fan controls unless the same command enables them', async (): Promise<void> => {
         const maxPerfBase = makeProfile('base', 'Base');
         maxPerfBase.cpu.useMaxPerfGov = true;
@@ -562,17 +930,39 @@ describe('runCli', (): void => {
         expect(rejected.stdout).toBe('');
         expect(rejected.stderr).toContain('tcc-cli: Invalid profile setting: cpu.scalingMinFrequency:');
 
-        const enabled = await execute([
-            'profiles', 'create', 'Enabled', '--base', 'base', '--cpu-max-performance', 'off',
-            '--cpu-min-frequency', '500000', '--cpu-energy-preference', 'performance',
-        ], { profiles: JSON.stringify([maxPerfBase]) });
+        const enabled = await execute(
+            [
+                'profiles',
+                'create',
+                'Enabled',
+                '--base',
+                'base',
+                '--cpu-max-performance',
+                'off',
+                '--cpu-min-frequency',
+                '500000',
+                '--cpu-energy-preference',
+                'performance',
+            ],
+            { profiles: JSON.stringify([maxPerfBase]) },
+        );
         expect(enabled.code).toBe(0);
 
         const customBase = makeProfile('custom-base', 'Custom base');
-        const customConflict = await execute([
-            'profiles', 'create', 'Custom', '--base', 'custom-base',
-            '--fan-profile', 'Custom', '--fan-min-speed', '30',
-        ], { profiles: JSON.stringify([customBase]) });
+        const customConflict = await execute(
+            [
+                'profiles',
+                'create',
+                'Custom',
+                '--base',
+                'custom-base',
+                '--fan-profile',
+                'Custom',
+                '--fan-min-speed',
+                '30',
+            ],
+            { profiles: JSON.stringify([customBase]) },
+        );
         expect(customConflict.code).toBe(1);
         expect(customConflict.stdout).toBe('');
         expect(customConflict.stderr).toContain('tcc-cli: Invalid profile setting: fan.minimumFanspeed:');
@@ -631,9 +1021,7 @@ describe('runCli', (): void => {
         const invalidJson = await execute(['profiles', 'edit', 'target', '--editor'], {}, invalidJsonIO);
         expect(invalidJson.code).toBe(1);
         expect(invalidJson.stdout).toBe('');
-        expect(invalidJson.stderr).toBe(
-            'tcc-cli: Invalid profile setting: profile: editor returned invalid JSON.',
-        );
+        expect(invalidJson.stderr).toBe('tcc-cli: Invalid profile setting: profile: editor returned invalid JSON.');
         expect(invalidJsonIO.saveCalls).toBe(0);
 
         const cancelledIO = createMemoryProfileIO(JSON.stringify([target]));
@@ -708,7 +1096,6 @@ describe('runCli', (): void => {
         expect(unsupportedTdpIO.saveCalls).toBe(0);
     });
 
-
     it('round-trips an accepted custom fan curve and TDP document through ConfigHandler', async (): Promise<void> => {
         const directory = await mkdtemp(join(tmpdir(), 'tcc-cli-profile-roundtrip-'));
         const profilesPath = join(directory, 'profiles.json');
@@ -782,109 +1169,437 @@ describe('runCli', (): void => {
         expect(io.saveCalls).toBe(0);
     });
 
+    it('requires readable raw customs to establish built-in name uniqueness', async (): Promise<void> => {
+        const unreadable = createMemoryProfileIO();
+        unreadable.readSavedProfiles = async (): Promise<string> => {
+            unreadable.readCalls += 1;
+            throw new Error('permission denied');
+        };
+        for (const argv of [
+            ['profiles', 'show', 'Built-in'],
+            ['profiles', 'edit', 'Built-in', '--description', 'changed'],
+        ]) {
+            const result = await execute(argv, {}, unreadable);
+            expect(result.code).toBe(1);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe('tcc-cli: Cannot read saved profiles: permission denied.');
+        }
+        expect(unreadable.readCalls).toBe(2);
+        expect(unreadable.saveCalls).toBe(0);
 
-    it('prints help without constructing a client', async (): Promise<void> => {
-        let stdout = '';
-        const code = await runCli(['--help'], {
-            createClient: (): CliClient => { throw new Error('client must not be created'); },
-            createProfileIO: (): ProfileIO => { throw new Error('profile I/O must not be created'); },
-            stdout: (text: string): void => { stdout += text; },
-            stderr: (): void => undefined,
-        });
-        expect(code).toBe(0);
-        expect(stdout).toContain('profiles list');
-        expect(stdout).toContain('profiles current');
-        expect(stdout).toContain('status');
-        expect(stdout).toContain('profiles activate <id>');
-        expect(stdout).toContain('profiles show <id>');
-        expect(stdout).toContain('profiles create <name>');
-        expect(stdout).toContain('Temporarily');
-        expect(stdout).toContain('polkit authentication');
-        expect(stdout).toContain('one writer at a time');
-        expect(stdout).toContain('may reapply the current profile to hardware');
-        expect(stdout).toContain('does not activate it or change saved AC/battery mappings');
+        const exactId = createMemoryProfileIO();
+        exactId.readSavedProfiles = async (): Promise<string> => {
+            exactId.readCalls += 1;
+            throw new Error('permission denied');
+        };
+        const shown = await execute(['profiles', 'show', 'builtin'], {}, exactId);
+        expect(shown.code).toBe(0);
+        expect(shown.stdout).toBe(`${JSON.stringify(builtInProfile, null, 2)}\n`);
+        const edited = await execute(['profiles', 'edit', 'builtin', '--description', 'changed'], {}, exactId);
+        expect(edited.code).toBe(1);
+        expect(edited.stderr).toBe(
+            'tcc-cli: Built-in profile is read-only: builtin. Create a profile with --base builtin instead.',
+        );
+        expect(exactId.readCalls).toBe(0);
+        expect(exactId.saveCalls).toBe(0);
     });
 
-    it('prints all new command help without connecting or creating profile I/O', async (): Promise<void> => {
-        for (const argv of [
-            ['profiles', 'show', '--help'],
-            ['profiles', 'create', '--help'],
-            ['profiles', 'edit', '--help'],
-        ]) {
-            let stdout = '';
-            const code = await runCli(argv, {
-                createClient: (): CliClient => { throw new Error('client must not be created'); },
-                createProfileIO: (): ProfileIO => { throw new Error('profile I/O must not be created'); },
-                stdout: (text: string): void => { stdout += text; },
-                stderr: (): void => undefined,
-            });
-            expect(code).toBe(0);
-            expect(stdout).toContain('Custom profiles show their saved JSON');
-            expect(stdout).toContain('Built-in profiles show daemon-resolved defaults');
-            expect(stdout).toContain('polkit authentication');
-            expect(stdout).toContain('not transactional');
-            expect(stdout).toContain('does not activate it or change saved AC/battery mappings');
+    it('routes root, group, leaf, and subject help without constructing dependencies', async (): Promise<void> => {
+        const helpArguments = [
+            [],
+            ['help'],
+            ['--help'],
+            ['-h'],
+            ['profiles'],
+            ['profiles', '--help'],
+            ['profiles', '-h'],
+            ['status', '--help'],
+            ['status', '-h'],
+            ...['list', 'current', 'activate', 'show', 'create', 'edit'].flatMap((command) => [
+                ['profiles', command, '--help'],
+                ['profiles', command, '-h'],
+            ]),
+            ['profiles', 'activate', 'Quiet profile', '--help'],
+            ['profiles', 'show', 'Quiet profile', '-h'],
+            ['profiles', 'create', 'Quiet profile', '--help'],
+            ['profiles', 'edit', 'Quiet profile', '-h'],
+        ];
+
+        for (const argv of helpArguments) {
+            const result = await executeWithoutFactories(argv);
+            expect(result.code).withContext(argv.join(' ')).toBe(0);
+            expect(result.stderr).withContext(argv.join(' ')).toBe('');
+            expect(result.stdout.endsWith('\n')).withContext(argv.join(' ')).toBe(true);
         }
     });
 
-    it('rejects invalid new command forms before constructing a client or profile adapter', async (): Promise<void> => {
-        for (const argv of [
-            ['profiles', 'show'],
-            ['profiles', 'show', 'id', 'extra'],
-            ['profiles', 'create'],
-            ['profiles', 'create', '--name', 'New'],
-            ['profiles', 'create', 'New', '--name', 'Other'],
-            ['profiles', 'create', 'New', '--brightness'],
-            ['profiles', 'create', 'New', '--brightness=1.5'],
-            ['profiles', 'create', 'New', '--brightness', '50', '--brightness', '60'],
-            ['profiles', 'create', 'New', '--unknown', 'x'],
-            ['profiles', 'create', 'New', '--base', 'base', '--editor', '--description', 'x'],
-            ['profiles', 'edit', 'id'],
-            ['profiles', 'edit', 'id', '--base', 'base', '--description', 'x'],
-            ['profiles', 'edit', 'id', '--description'],
-            ['profiles', 'create', 'New', '--base'],
-            ['profiles', 'create', 'New', '--base', 'first', '--base', 'second'],
+    it('keeps root and group help limited to navigation', async (): Promise<void> => {
+        const root = await executeWithoutFactories(['--help']);
+        expect(root.stdout).toContain('Usage: tcc-cli <command>');
+        expect(root.stdout).toContain('status');
+        expect(root.stdout).toContain('profiles');
+        expect(root.stdout).toContain('--help, -h');
+        expect(root.stdout).toContain('Run "tcc-cli <command> --help" for more information.');
+        expect(root.stdout).not.toContain('profiles list');
+        expect(root.stdout).not.toContain('--brightness');
+        expect(root.stdout).not.toContain('polkit');
+
+        const group = await executeWithoutFactories(['profiles', '--help']);
+        expect(group.stdout).toContain('Usage: tcc-cli profiles <command>');
+        expect(group.stdout).toContain('list');
+        expect(group.stdout).toContain('current');
+        expect(group.stdout).toContain('activate <profile>');
+        expect(group.stdout).toContain('show <profile>');
+        expect(group.stdout).toContain('create <name>');
+        expect(group.stdout).toContain('edit <profile>');
+        expect(group.stdout).toContain(
+            'Use an exact ID or a unique, case-sensitive profile name. IDs take precedence.',
+        );
+        expect(group.stdout).toContain('Run "tcc-cli profiles <command> --help" for more information.');
+        expect(group.stdout).not.toContain('--brightness');
+        expect(
+            group.stdout.match(
+                /^  (list|current|activate <profile>|show <profile>|create <name>|edit <profile>)\s{2,}/gm,
+            )?.length,
+        ).toBe(6);
+    });
+
+    it('keeps each leaf help focused and keeps wrapped tables within 80 columns', async (): Promise<void> => {
+        const status = await executeWithoutFactories(['status', '--help']);
+        expect(status.stdout).toContain('daemon availability, version, device, and active profile');
+        expect(status.stdout).toContain('only reads status data');
+
+        const list = await executeWithoutFactories(['profiles', 'list', '--help']);
+        expect(list.stdout).toContain('List the IDs and names of profiles reported by the daemon.');
+        expect(list.stdout).toContain('only reads the profile list');
+
+        const current = await executeWithoutFactories(['profiles', 'current', '--help']);
+        expect(current.stdout).toContain('Show the active profile ID and name.');
+        expect(current.stdout).toContain('only reads the active profile');
+
+        const activate = await executeWithoutFactories(['profiles', 'activate', '--help']);
+        const activationHelp = activate.stdout.replace(/\s+/g, ' ');
+        expect(activationHelp).toContain('profiles activate <profile>');
+        expect(activationHelp).toContain('Authorization may be required.');
+        expect(activationHelp).toContain('power-state change or another selection');
+        expect(activationHelp).toContain('provider holds can override it');
+        expect(activationHelp).toContain('mapped to a standard power profile can be activated');
+        expect(activate.stdout).not.toContain('one writer at a time');
+
+        const show = await executeWithoutFactories(['profiles', 'show', '--help']);
+        expect(show.stdout).toContain('profiles show <profile>');
+        expect(show.stdout).toContain('saved JSON');
+        expect(show.stdout).toContain('daemon-resolved JSON');
+        expect(show.stdout).not.toContain('--brightness');
+        expect(show.stdout).not.toContain('--base');
+
+        const create = await executeWithoutFactories(['profiles', 'create', '--help']);
+        const createHelp = create.stdout.replace(/\s+/g, ' ');
+        expect(createHelp).toContain(
+            'Usage: tcc-cli profiles create <name> [--base <profile>] [setting flags | --editor]',
+        );
+        expect(create.stdout).toContain('--base <profile>');
+        expect(create.stdout).toContain('--brightness');
+        expect(create.stdout).toContain('--editor');
+        expect(create.stdout).not.toContain('--name');
+        expect(createHelp).toContain('No base is selected implicitly off-terminal.');
+        expect(createHelp).toContain('does not activate the clone');
+        expect(createHelp).toContain('or make it a provider-mapped profile');
+
+        const edit = await executeWithoutFactories(['profiles', 'edit', '--help']);
+        const editHelp = edit.stdout.replace(/\s+/g, ' ');
+        expect(editHelp).toContain('Usage: tcc-cli profiles edit <profile> [setting flags | --editor]');
+        expect(edit.stdout).toContain('--name <name>');
+        expect(edit.stdout).toContain('--editor');
+        expect(edit.stdout).not.toContain('--base');
+        expect(editHelp).toContain('Built-in profiles are read-only.');
+        expect(editHelp).toContain('IDs cannot change');
+
+        for (const [help, text] of [
+            [create.stdout, createHelp],
+            [edit.stdout, editHelp],
         ]) {
-            let stderr = '';
-            const code = await runCli(argv, {
-                createClient: (): CliClient => { throw new Error('client must not be created'); },
-                createProfileIO: (): ProfileIO => { throw new Error('profile I/O must not be created'); },
-                stdout: (): void => undefined,
-                stderr: (text: string): void => { stderr += text; },
-            });
-            expect(code).toBe(2);
-            expect(stderr).toContain('Invalid command');
+            expect(text).toContain('may require polkit authentication');
+            expect(text).toContain('Use one writer at a time');
+            expect(text).toContain('may reapply the current profile to hardware');
+            expect(text).toContain('Saved AC/battery assignments do not change');
+            expect(text).toContain('fan curves and TDP arrays');
+            expect(text).not.toContain('SIGHUP');
+            for (const line of help.split('\n')) {
+                expect(line.length).withContext(line).toBeLessThanOrEqual(80);
+                expect(line).not.toContain('\t');
+            }
+            const rows = help.split('\n').filter((line) => /^  \S.*\s{2,}\S/.test(line));
+            expect(rows.length).toBeGreaterThan(10);
+            for (const row of rows) {
+                const description = row.slice(2).search(/\s{2,}\S/);
+                expect(description).withContext(row).toBeGreaterThanOrEqual(2);
+            }
+        }
+        const createLines = create.stdout.split('\n');
+        const editorRow = createLines.findIndex((line) => line.startsWith('  --editor'));
+        expect(editorRow).toBeGreaterThanOrEqual(0);
+        const editorDescriptionColumn = createLines[editorRow].indexOf('Open $EDITOR');
+        expect(createLines[editorRow + 1].slice(0, editorDescriptionColumn)).toBe(' '.repeat(editorDescriptionColumn));
+        expect(createLines[editorRow + 1].trim()).toBe('JSON.');
+    });
+
+    it('reports static setting values without connecting or printing help', async (): Promise<void> => {
+        const tooLong = 'x'.repeat(201);
+        const tooLongName = 'x'.repeat(51);
+        const cases: Array<{ argv: string[]; option: string; value: string; expected: string }> = [
+            {
+                argv: ['profiles', 'create', 'Test', '--base', 'builtin', '--cpu-cores', '0'],
+                option: '--cpu-cores',
+                value: '0',
+                expected: 'a positive integer or "all"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-cores', '-1'],
+                option: '--cpu-cores',
+                value: '-1',
+                expected: 'a positive integer or "all"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-cores', '0.5'],
+                option: '--cpu-cores',
+                value: '0.5',
+                expected: 'a positive integer or "all"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-cores', 'many'],
+                option: '--cpu-cores',
+                value: 'many',
+                expected: 'a positive integer or "all"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--brightness', '101'],
+                option: '--brightness',
+                value: '101',
+                expected: 'an integer from 0 to 100 or "unchanged"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--refresh-rate', 'Infinity'],
+                option: '--refresh-rate',
+                value: 'Infinity',
+                expected: 'a positive finite number of Hz or "unchanged"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--webcam', 'yes'],
+                option: '--webcam',
+                value: 'yes',
+                expected: '"on" or "off"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-min-frequency', 'max'],
+                option: '--cpu-min-frequency',
+                value: 'max',
+                expected: 'a positive integer in kHz or "default"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-max-frequency', 'default'],
+                option: '--cpu-max-frequency',
+                value: 'default',
+                expected: 'a positive integer in kHz, "max", or "reduced"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--cpu-energy-preference', ''],
+                option: '--cpu-energy-preference',
+                value: '',
+                expected: 'a nonempty string',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--fan-profile', 'Missing preset'],
+                option: '--fan-profile',
+                value: 'Missing preset',
+                expected: 'one of "Silent", "Quiet", "Balanced", "Cool", "Freezy", "Custom"',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--fan-min-speed', '101'],
+                option: '--fan-min-speed',
+                value: '101',
+                expected: 'an integer from 0 to 100',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--fan-max-speed', '101'],
+                option: '--fan-max-speed',
+                value: '101',
+                expected: 'an integer from 0 to 100',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--fan-offset', '101'],
+                option: '--fan-offset',
+                value: '101',
+                expected: 'an integer from -100 to 100',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--nvidia-power-offset', '-1'],
+                option: '--nvidia-power-offset',
+                value: '-1',
+                expected: 'a nonnegative integer in watts',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--odm-profile', ''],
+                option: '--odm-profile',
+                value: '',
+                expected: 'a nonempty string',
+            },
+            {
+                argv: ['profiles', 'create', ''],
+                option: '<name>',
+                value: '',
+                expected: '1 to 50 characters',
+            },
+            {
+                argv: ['profiles', 'create', tooLongName],
+                option: '<name>',
+                value: tooLongName,
+                expected: '1 to 50 characters',
+            },
+            {
+                argv: ['profiles', 'edit', 'target', '--name', tooLongName],
+                option: '--name',
+                value: tooLongName,
+                expected: '1 to 50 characters',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--description', tooLong],
+                option: '--description',
+                value: tooLong,
+                expected: '0 to 200 characters',
+            },
+        ];
+
+        for (const { argv, option, value, expected } of cases) {
+            const result = await executeWithoutFactories(argv);
+            expect(result.code).withContext(argv.join(' ')).toBe(2);
+            expect(result.stdout).withContext(argv.join(' ')).toBe('');
+            expect(
+                result.stderr.startsWith(`tcc-cli: Invalid value for ${option}: ${JSON.stringify(value)}. Expected `),
+            )
+                .withContext(argv.join(' '))
+                .toBe(true);
+            expect(result.stderr).withContext(argv.join(' ')).toContain(`Expected ${expected}.`);
+            expect(result.stderr).withContext(argv.join(' ')).not.toContain('Usage:');
+            expect(result.stderr).withContext(argv.join(' ')).not.toContain('Run "tcc-cli');
         }
     });
 
-    it('rejects invalid arguments without constructing a client', async (): Promise<void> => {
-        let stderr = '';
-        const code = await runCli(['profiles', 'list', 'extra'], {
-            createClient: (): CliClient => { throw new Error('client must not be created'); },
-            createProfileIO: (): ProfileIO => { throw new Error('profile I/O must not be created'); },
-            stdout: (): void => undefined,
-            stderr: (text: string): void => { stderr += text; },
-        });
-        expect(code).toBe(2);
-        expect(stderr).toContain('Usage:');
-        expect(stderr).toContain('Invalid command');
+    it('reports syntax reasons and one nearest-help hint before constructing dependencies', async (): Promise<void> => {
+        const cases: Array<{ argv: string[]; reason: string; hint: string }> = [
+            { argv: ['profiles', 'show'], reason: 'Missing required argument: <profile>.', hint: 'profiles show' },
+            {
+                argv: ['profiles', 'show', 'id', 'extra'],
+                reason: 'Unexpected argument: "extra".',
+                hint: 'profiles show',
+            },
+            { argv: ['profiles', 'create'], reason: 'Missing required argument: <name>.', hint: 'profiles create' },
+            {
+                argv: ['profiles', 'create', 'Test', '--brightness'],
+                reason: 'Missing value for --brightness.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--unknown', 'x'],
+                reason: 'Unknown option: --unknown.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--brightness', '50', '--brightness', '60'],
+                reason: 'Repeated option: --brightness.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--base', 'base', '--editor', '--description', 'x'],
+                reason: '--editor cannot be combined with setting flags.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--name', 'New'],
+                reason: '--name is only available for profiles edit.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'edit', 'id', '--base', 'base', '--description', 'x'],
+                reason: '--base is only available for profiles create.',
+                hint: 'profiles edit',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--base'],
+                reason: 'Missing value for --base.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', 'extra'],
+                reason: 'Unexpected argument: "extra".',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'edit', 'id'],
+                reason: 'Missing required option: a setting flag or --editor.',
+                hint: 'profiles edit',
+            },
+            {
+                argv: ['profiles', 'create', 'Test', '--description', '--help'],
+                reason: 'Missing value for --description.',
+                hint: 'profiles create',
+            },
+            {
+                argv: ['profiles', 'activate'],
+                reason: 'Missing required argument: <profile>.',
+                hint: 'profiles activate',
+            },
+            {
+                argv: ['profiles', 'activate', 'id', 'extra'],
+                reason: 'Unexpected argument: "extra".',
+                hint: 'profiles activate',
+            },
+            {
+                argv: ['profiles', 'list', 'extra'],
+                reason: 'Unexpected argument: "extra".',
+                hint: 'profiles list',
+            },
+            { argv: ['status', 'extra'], reason: 'Unexpected argument: "extra".', hint: 'status' },
+        ];
+
+        for (const { argv, reason, hint } of cases) {
+            const result = await executeWithoutFactories(argv);
+            expect(result.code).withContext(argv.join(' ')).toBe(2);
+            expect(result.stdout).withContext(argv.join(' ')).toBe('');
+            expect(result.stderr)
+                .withContext(argv.join(' '))
+                .toBe(`tcc-cli: ${reason}\nRun "tcc-cli ${hint} --help" for usage.`);
+        }
     });
-    it('rejects missing, empty, option-like, and extra activation arguments before client creation', async (): Promise<void> => {
-        for (const argv of [
-            ['profiles', 'activate'],
-            ['profiles', 'activate', ''],
-            ['profiles', 'activate', '--all'],
-            ['profiles', 'activate', 'office', 'extra'],
-        ]) {
-            let stderr = '';
-            const code = await runCli(argv, {
-                createClient: (): CliClient => { throw new Error('client must not be created'); },
-                createProfileIO: (): ProfileIO => { throw new Error('profile I/O must not be created'); },
-                stdout: (): void => undefined,
-                stderr: (text: string): void => { stderr += text; },
-            });
-            expect(code).toBe(2);
-            expect(stderr).toContain('Invalid command');
+
+    it('keeps help-like text literal when supplied inline', async (): Promise<void> => {
+        const base = makeProfile('base', 'Base');
+        const io = createMemoryProfileIO();
+        const result = await execute(
+            ['profiles', 'create', 'Help text', '--base', 'base', '--description=--help'],
+            { profiles: JSON.stringify([base]) },
+            io,
+        );
+        expect(result.code).toBe(0);
+        expect((JSON.parse(io.savedProfiles) as Array<Record<string, unknown>>)[0]['description']).toBe('--help');
+
+        const missing = await executeWithoutFactories(['profiles', 'create', 'Test', '--description', '--help']);
+        expect(missing.code).toBe(2);
+        expect(missing.stderr).toContain('Missing value for --description.');
+        expect(missing.stdout).toBe('');
+    });
+
+    it('rejects invalid root and group shapes with only their nearest help hint', async (): Promise<void> => {
+        for (const [argv, hint] of [
+            [['not-a-command'], 'Run "tcc-cli --help" for usage.'],
+            [['profiles', 'not-a-command'], 'Run "tcc-cli profiles --help" for usage.'],
+            [['profiles', '__proto__', '--help'], 'Run "tcc-cli profiles --help" for usage.'],
+        ] as const) {
+            const result = await executeWithoutFactories([...argv]);
+            expect(result.code).toBe(2);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe(`tcc-cli: Invalid command.\n${hint}`);
+            expect(result.stderr).not.toContain('Usage: tcc-cli');
         }
     });
 });

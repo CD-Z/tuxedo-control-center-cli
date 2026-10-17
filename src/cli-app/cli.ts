@@ -3,11 +3,17 @@ import type { TccDBusController } from '../common/classes/TccDBusController';
 import { TUXEDODevice } from '../common/models/DefaultProfiles';
 import { generateProfileId } from '../common/models/TccProfile';
 import type { ITccProfile } from '../common/models/TccProfile';
-import { applyProfileSettings, validateChangedSettings, validateProfileDocument, validateSavedProfiles } from './profile-settings';
+import {
+    applyProfileSettings,
+    validateChangedSettings,
+    validateProfileDocument,
+    validateSavedProfiles,
+} from './profile-settings';
 import type { SavedProfile } from './profile-settings';
 import { parseProfileCommand } from './profile-options';
 import type { ProfileParseResult } from './profile-options';
 import type { ProfileIO } from './profile-io';
+import { getHelpTopic, renderHelp } from './cli-help';
 
 export type CliClient = Pick<
     TccDBusController,
@@ -40,45 +46,32 @@ export interface CliDependencies {
     stderr(text: string): void;
 }
 
-const profileHelp = [
-    'Profile commands:',
-    '  profiles show <id>',
-    '  profiles create <name> [--base <id>] [setting flags | --editor]',
-    '  profiles edit <id> [setting flags | --editor]',
-    '  --base accepts an exact profile ID; without it, create prompts for a base on a terminal.',
-    '  Setting flags: --name, --description, --brightness, --refresh-rate, --webcam, --cpu-cores,',
-    '    --cpu-min-frequency, --cpu-max-frequency, --cpu-max-performance, --cpu-energy-preference,',
-    '    --cpu-turbo, --fan-profile, --fan-min-speed, --fan-max-speed, --fan-offset, --odm-profile,',
-    '    --nvidia-power-offset. --editor cannot be combined with setting flags.',
-    '  Custom profiles show their saved JSON. Built-in profiles show daemon-resolved defaults.',
-    '  Profile saves use the privileged helper and may require polkit authentication.',
-    '  The helper replaces the complete profile list. Use one writer at a time. Concurrent GUI and CLI saves',
-    '  are not transactional, and a daemon reload after any save may reapply the current profile to hardware.',
-    '  Creating a profile does not activate it or change saved AC/battery mappings.',
-].join('\n') + '\n';
+function helpHint(argv: readonly string[]): string {
+    if (argv[0] === 'status') {
+        return 'Run "tcc-cli status --help" for usage.';
+    }
+    if (argv[0] === 'profiles') {
+        if (['list', 'current', 'activate', 'show', 'create', 'edit'].includes(argv[1] ?? '')) {
+            return `Run "tcc-cli profiles ${argv[1]} --help" for usage.`;
+        }
+        return 'Run "tcc-cli profiles --help" for usage.';
+    }
+    return 'Run "tcc-cli --help" for usage.';
+}
 
-const usage = [
-    'Usage: tcc-cli <command>',
-    'Commands:',
-    '  status          Show daemon and active profile status',
-    '  profiles list   List available profiles',
-    '  profiles current  Show the active profile',
-    '  profiles activate <id>  Temporarily activate an existing profile',
-    '  profiles show <id>  Show a saved or built-in profile',
-    '  profiles create <name> [--base <id>] [setting flags | --editor]',
-    '  profiles edit <id> [setting flags | --editor]',
-    '  Temporary selection can apply hardware settings through tccd, does not change saved power-state assignments, and may be cleared by a daemon restart, power-state change, or changed saved mapping.',
-    '',
-    profileHelp.trimEnd(),
-].join('\n') + '\n';
-
-
+function syntaxFailure(reason: string, argv: readonly string[], stderr: (text: string) => void): number {
+    stderr(`tcc-cli: ${reason}\n${helpHint(argv)}`);
+    return 2;
+}
 
 function invalid(field: string): Error {
     return new Error(`tcc-cli: tccd returned invalid ${field} data.`);
 }
 
-function parseProfiles(json: string | undefined, field: 'profile list' | 'active profile'): ITccProfile[] | ITccProfile {
+function parseProfiles(
+    json: string | undefined,
+    field: 'profile list' | 'active profile',
+): ITccProfile[] | ITccProfile {
     let parsed: unknown;
     try {
         parsed = JSON.parse(json as string) as unknown;
@@ -125,6 +118,25 @@ function parseUniqueProfileList(json: string | undefined): ITccProfile[] {
         ids.add(profile.id);
     }
     return profiles;
+}
+
+function resolveProfile<T extends { id: string; name: string }>(profiles: readonly T[], selector: string): T {
+    const idMatch = profiles.find((profile): boolean => profile.id === selector);
+    if (idMatch) {
+        return idMatch;
+    }
+    const nameMatches = profiles.filter((profile): boolean => profile.name === selector);
+    if (nameMatches.length === 1) {
+        return nameMatches[0];
+    }
+    if (nameMatches.length === 0) {
+        throw new Error(
+            `tcc-cli: Unknown profile: ${JSON.stringify(selector)}. Use "tcc-cli profiles list" to see available IDs and names.`,
+        );
+    }
+    throw new Error(
+        `tcc-cli: Ambiguous profile name: ${JSON.stringify(selector)}. Matching IDs: ${nameMatches.map((profile) => JSON.stringify(profile.id)).join(', ')}. Use an ID.`,
+    );
 }
 
 function parseDefaultProfiles(json: string | undefined): SavedProfile[] {
@@ -176,11 +188,7 @@ function parseEditedProfile(json: string): SavedProfile {
     return parsed;
 }
 
-async function editedDraft(
-    io: ProfileIO,
-    draft: SavedProfile,
-    expectedId: string,
-): Promise<SavedProfile | undefined> {
+async function editedDraft(io: ProfileIO, draft: SavedProfile, expectedId: string): Promise<SavedProfile | undefined> {
     const result = await io.editProfile(`${JSON.stringify(draft, null, 2)}\n`);
     if (result === undefined) {
         return undefined;
@@ -193,7 +201,7 @@ async function editedDraft(
 }
 
 async function runProfileCommand(
-    command: Exclude<ProfileParseResult, { kind: 'unhandled' | 'invalid' | 'help' }>,
+    command: Exclude<ProfileParseResult, { kind: 'unhandled' | 'invalid' }>,
     client: CliClient,
     io: ProfileIO,
     stdout: (text: string) => void,
@@ -201,35 +209,35 @@ async function runProfileCommand(
     const builtIns = parseDefaultProfiles(await client.getDefaultProfilesJSON());
     const defaultIds = profileIds(builtIns);
     if (command.kind === 'show') {
-        const builtIn = builtIns.find((profile): boolean => profile.id === command.id);
-        if (builtIn) {
-            stdout(`${JSON.stringify(builtIn, null, 2)}\n`);
+        const builtInById = builtIns.find((profile): boolean => profile.id === command.selector);
+        if (builtInById) {
+            stdout(`${JSON.stringify(builtInById, null, 2)}\n`);
             return;
         }
         const savedProfiles = await readSavedProfiles(io, defaultIds);
-        const saved = savedProfiles.find((profile): boolean => profile.id === command.id);
-        if (!saved) {
-            throw new Error(`tcc-cli: Unknown profile ID: ${command.id}.`);
-        }
-        stdout(`${JSON.stringify(saved, null, 2)}\n`);
+        const selected = resolveProfile([...builtIns, ...savedProfiles], command.selector);
+        stdout(`${JSON.stringify(selected, null, 2)}\n`);
         return;
     }
 
-    if (command.kind === 'edit' && defaultIds.has(command.id)) {
+    if (command.kind === 'edit' && defaultIds.has(command.selector)) {
         throw new Error(
-            `tcc-cli: Built-in profile is read-only: ${command.id}. Create a profile with --base ${command.id} instead.`,
+            `tcc-cli: Built-in profile is read-only: ${command.selector}. Create a profile with --base ${command.selector} instead.`,
         );
     }
 
-    const daemonProfiles = command.kind === 'create'
-        ? parseUniqueProfileList(await client.getProfilesJSON())
-        : undefined;
+    const daemonProfiles =
+        command.kind === 'create' ? parseUniqueProfileList(await client.getProfilesJSON()) : undefined;
     const initialSavedProfiles = await readSavedProfiles(io, defaultIds);
-    const before = command.kind === 'edit'
-        ? initialSavedProfiles.find((profile): boolean => profile.id === command.id)
-        : undefined;
-    if (command.kind === 'edit' && !before) {
-        throw new Error(`tcc-cli: Unknown profile ID: ${command.id}.`);
+    let before: SavedProfile | undefined;
+    if (command.kind === 'edit') {
+        const selected = resolveProfile([...builtIns, ...initialSavedProfiles], command.selector);
+        if (defaultIds.has(selected.id)) {
+            throw new Error(
+                `tcc-cli: Built-in profile is read-only: ${selected.id}. Create a profile with --base ${selected.id} instead.`,
+            );
+        }
+        before = initialSavedProfiles.find((profile): boolean => profile.id === selected.id);
     }
 
     let draft: SavedProfile;
@@ -237,16 +245,18 @@ async function runProfileCommand(
     let targetId: string;
     if (command.kind === 'create') {
         const profiles = daemonProfiles as ITccProfile[];
-        let baseId = command.baseId;
-        if (baseId === undefined) {
-            baseId = await io.selectBase(profiles.map(({ id, name }) => ({ id, name })));
-            if (baseId === undefined) {
+        let base: ITccProfile | undefined;
+        if (command.baseSelector === undefined) {
+            const selectedId = await io.selectBase(profiles.map(({ id, name }) => ({ id, name })));
+            if (selectedId === undefined) {
                 throw new Error('tcc-cli: Profile operation cancelled.');
             }
-        }
-        const base = profiles.find((profile): boolean => profile.id === baseId);
-        if (!base) {
-            throw new Error(`tcc-cli: Unknown profile ID: ${baseId}.`);
+            base = profiles.find((profile): boolean => profile.id === selectedId);
+            if (!base) {
+                throw new Error(`tcc-cli: Unknown profile ID: ${selectedId}.`);
+            }
+        } else {
+            base = resolveProfile(profiles, command.baseSelector);
         }
         validateProfileDocument(base);
         targetId = generateProfileId();
@@ -273,7 +283,7 @@ async function runProfileCommand(
         }
     } else {
         const original = before as SavedProfile;
-        targetId = command.id;
+        targetId = original.id;
         baseline = structuredClone(original) as SavedProfile;
         draft = structuredClone(original) as SavedProfile;
         if (command.editor) {
@@ -295,12 +305,9 @@ async function runProfileCommand(
 
     const latestSavedProfiles = await readSavedProfiles(io, defaultIds);
     if (command.kind === 'edit') {
-        const latestIndex = latestSavedProfiles.findIndex((profile): boolean => profile.id === command.id);
-        if (
-            latestIndex === -1 ||
-            !isDeepStrictEqual(latestSavedProfiles[latestIndex], before)
-        ) {
-            throw new Error(`tcc-cli: Profile changed while editing: ${command.id}. Run the command again.`);
+        const latestIndex = latestSavedProfiles.findIndex((profile): boolean => profile.id === targetId);
+        if (latestIndex === -1 || !isDeepStrictEqual(latestSavedProfiles[latestIndex], before)) {
+            throw new Error(`tcc-cli: Profile changed while editing: ${targetId}. Run the command again.`);
         }
         latestSavedProfiles[latestIndex] = draft;
     } else {
@@ -316,9 +323,7 @@ async function runProfileCommand(
     }
     validateSavedProfiles(latestSavedProfiles, defaultIds);
     await io.saveProfiles(`${JSON.stringify(latestSavedProfiles, null, 2)}\n`);
-    stdout(
-        `${command.kind === 'create' ? 'Created' : 'Updated'} profile: ${draft.name} [${draft.id}]\n`,
-    );
+    stdout(`${command.kind === 'create' ? 'Created' : 'Updated'} profile: ${draft.name} [${draft.id}]\n`);
 }
 
 async function connect(client: CliClient): Promise<void> {
@@ -332,36 +337,47 @@ function errorText(error: unknown): string {
 }
 
 export async function runCli(argv: readonly string[], dependencies: CliDependencies): Promise<number> {
-    if (argv.length === 0 || (argv.length === 1 && ['help', '--help', '-h'].includes(argv[0]))) {
-        dependencies.stdout(usage);
+    const helpTopic = getHelpTopic(argv);
+    if (helpTopic) {
+        dependencies.stdout(renderHelp(helpTopic));
         return 0;
     }
 
     const parsedProfileCommand = parseProfileCommand(argv);
-    if (parsedProfileCommand.kind === 'help') {
-        dependencies.stdout(profileHelp);
-        return 0;
-    }
     if (parsedProfileCommand.kind === 'invalid') {
-        dependencies.stderr(`tcc-cli: Invalid command.\n${usage}`);
+        dependencies.stderr(parsedProfileCommand.message);
         return 2;
     }
     const profileCommand = parsedProfileCommand.kind === 'unhandled' ? undefined : parsedProfileCommand;
-    const command = profileCommand
-        ? 'profiles-management'
-        : argv.length === 1 && argv[0] === 'status'
-            ? 'status'
-            : argv.length === 2 && argv[0] === 'profiles' && argv[1] === 'list'
-                ? 'profiles-list'
-                : argv.length === 2 && argv[0] === 'profiles' && argv[1] === 'current'
-                    ? 'profiles-current'
-                    : argv.length === 3 && argv[0] === 'profiles' && argv[1] === 'activate' &&
-                        argv[2].length > 0 && !argv[2].startsWith('-')
-                        ? 'profiles-activate'
-                        : undefined;
+    let command:
+        'profiles-management' | 'status' | 'profiles-list' | 'profiles-current' | 'profiles-activate' | undefined;
+    if (profileCommand) {
+        command = 'profiles-management';
+    } else if (argv[0] === 'status') {
+        if (argv.length !== 1) {
+            return syntaxFailure(`Unexpected argument: ${JSON.stringify(argv[1])}.`, argv, dependencies.stderr);
+        }
+        command = 'status';
+    } else if (argv[0] === 'profiles') {
+        if (argv[1] === 'list' || argv[1] === 'current') {
+            if (argv.length !== 2) {
+                return syntaxFailure(`Unexpected argument: ${JSON.stringify(argv[2])}.`, argv, dependencies.stderr);
+            }
+            command = argv[1] === 'list' ? 'profiles-list' : 'profiles-current';
+        } else if (argv[1] === 'activate') {
+            const selector = argv[2];
+            if (selector === undefined || selector.length === 0 || selector.startsWith('-')) {
+                return syntaxFailure('Missing required argument: <profile>.', argv, dependencies.stderr);
+            }
+            if (argv.length > 3) {
+                return syntaxFailure(`Unexpected argument: ${JSON.stringify(argv[3])}.`, argv, dependencies.stderr);
+            }
+            command = 'profiles-activate';
+        }
+    }
 
     if (!command) {
-        dependencies.stderr(`tcc-cli: Invalid command.\n${usage}`);
+        dependencies.stderr(`tcc-cli: Invalid command.${String.fromCharCode(10)}${helpHint(argv)}`);
         return 2;
     }
 
@@ -377,31 +393,33 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
         }
 
         if (command === 'profiles-activate') {
-            const profileId = argv[2];
-            const profiles = parseProfiles(await client.getProfilesJSON(), 'profile list') as ITccProfile[];
-            if (!profiles.some((profile): boolean => profile.id === profileId)) {
-                throw new Error(`tcc-cli: Unknown profile ID: ${profileId}.`);
-            }
-            if (await client.setTempProfileById(profileId) !== true) {
+            const selector = argv[2] as string;
+            const profiles = parseUniqueProfileList(await client.getProfilesJSON());
+            const profileId = resolveProfile(profiles, selector).id;
+            if ((await client.setTempProfileById(profileId)) !== true) {
                 throw new Error(`tcc-cli: tccd rejected profile activation: ${profileId}.`);
             }
             const activeProfile = parseProfiles(await client.getActiveProfileJSON(), 'active profile') as ITccProfile;
             if (activeProfile.id !== profileId) {
                 throw new Error(`tcc-cli: tccd did not activate profile: ${profileId}.`);
             }
-            dependencies.stdout(`Activated temporary profile: ${activeProfile.name} [${activeProfile.id}]\n`);
+            dependencies.stdout(
+                `Activated temporary profile: ${activeProfile.name} [${activeProfile.id}]${String.fromCharCode(10)}`,
+            );
             return 0;
         }
 
         if (command === 'profiles-list') {
             const profiles = parseProfiles(await client.getProfilesJSON(), 'profile list') as ITccProfile[];
-            dependencies.stdout(`ID\tNAME\n${profiles.map(displayProfile).join('')}`);
+            dependencies.stdout(
+                `ID${String.fromCharCode(9)}NAME${String.fromCharCode(10)}${profiles.map(displayProfile).join('')}`,
+            );
             return 0;
         }
 
         if (command === 'profiles-current') {
             const profile = parseProfiles(await client.getActiveProfileJSON(), 'active profile') as ITccProfile;
-            dependencies.stdout(`ID\tNAME\n${displayProfile(profile)}`);
+            dependencies.stdout(`ID${String.fromCharCode(9)}NAME${String.fromCharCode(10)}${displayProfile(profile)}`);
             return 0;
         }
 
@@ -424,7 +442,7 @@ export async function runCli(argv: readonly string[], dependencies: CliDependenc
             : String(device);
         const activeProfile = parseProfiles(await client.getActiveProfileJSON(), 'active profile') as ITccProfile;
         dependencies.stdout(
-            `Daemon: available\nVersion: ${version}\nDevice: ${deviceLabel}\nActive profile: ${activeProfile.name} [${activeProfile.id}]\n`,
+            `Daemon: available${String.fromCharCode(10)}Version: ${version}${String.fromCharCode(10)}Device: ${deviceLabel}${String.fromCharCode(10)}Active profile: ${activeProfile.name} [${activeProfile.id}]${String.fromCharCode(10)}`,
         );
         return 0;
     } catch (error: unknown) {

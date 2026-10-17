@@ -11,19 +11,23 @@ interface ChildResult {
 
 async function runMissingBusCommand(args: string[]): Promise<ChildResult> {
     const directory = await mkdtemp(join(tmpdir(), 'tcc-cli-process-'));
-    const child = spawn(process.execPath, [
-        '--import', 'tsx', resolve('src/cli-app/main.ts'), ...args,
-    ], {
+    const child = spawn(process.execPath, ['--import', 'tsx', resolve('src/cli-app/main.ts'), ...args], {
         cwd: process.cwd(),
         env: { ...process.env, DBUS_SYSTEM_BUS_ADDRESS: `unix:path=${join(directory, 'bus')}` },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string): void => { stdout += chunk; });
-    child.stderr.setEncoding('utf8').on('data', (chunk: string): void => { stderr += chunk; });
+    child.stdout.setEncoding('utf8').on('data', (chunk: string): void => {
+        stdout += chunk;
+    });
+    child.stderr.setEncoding('utf8').on('data', (chunk: string): void => {
+        stderr += chunk;
+    });
 
-    const timeout = setTimeout((): void => { child.kill('SIGKILL'); }, 5000);
+    const timeout = setTimeout((): void => {
+        child.kill('SIGKILL');
+    }, 5000);
     try {
         const code = await new Promise<number | null>((resolveExit, reject): void => {
             child.once('error', reject);
@@ -44,9 +48,13 @@ describe('CLI process connection failure', (): void => {
         for (const args of [
             ['status'],
             ['profiles', 'activate', 'office'],
+            ['profiles', 'activate', 'Quiet profile'],
             ['profiles', 'show', 'office'],
+            ['profiles', 'show', 'Quiet profile'],
             ['profiles', 'create', 'Test', '--base', 'office'],
+            ['profiles', 'create', 'Test', '--base', 'Quiet profile'],
             ['profiles', 'edit', 'office', '--brightness', '60'],
+            ['profiles', 'edit', 'Quiet profile', '--brightness', '60'],
         ]) {
             const result = await runMissingBusCommand(args);
             expect(result.code).toBe(1);
@@ -57,25 +65,45 @@ describe('CLI process connection failure', (): void => {
         }
     }, 15000);
 
-    it('handles profile help and invalid flags without contacting an unavailable bus', async (): Promise<void> => {
-        for (const [args, expectedCode] of [
-            [['profiles', 'show', '--help'], 0],
-            [['profiles', 'create', '--help'], 0],
-            [['profiles', 'edit', '--help'], 0],
-            [['profiles', 'create', 'Test', '--brightness', 'bad'], 2],
-            [['profiles', 'create', 'Test', '--editor', '--description', 'bad'], 2],
+    it('handles root, group, and leaf help before contacting an unavailable bus', async (): Promise<void> => {
+        for (const [args, expectedText] of [
+            [['--help'], 'Usage: tcc-cli <command>'],
+            [['profiles', '--help'], 'Usage: tcc-cli profiles <command>'],
+            [['profiles', 'create', '--help'], 'profiles create <name>'],
+            [['profiles', 'edit', '--help'], 'profiles edit <profile>'],
+            [['profiles', 'show', '--help'], 'profiles show <profile>'],
+            [['profiles', 'activate', '--help'], 'profiles activate <profile>'],
         ] as const) {
             const result = await runMissingBusCommand([...args]);
-            expect(result.code).toBe(expectedCode);
+            expect(result.code).toBe(0);
+            expect(result.stderr).toBe('');
+            expect(result.stdout).toContain(expectedText);
+        }
+    }, 15000);
+
+    it('rejects bad setting values and syntax before contacting an unavailable bus', async (): Promise<void> => {
+        const cases: Array<{ args: string[]; expected: string }> = [
+            {
+                args: ['profiles', 'create', 'Test', '--base', 'builtin', '--cpu-cores', '0'],
+                expected: 'tcc-cli: Invalid value for --cpu-cores: "0". Expected a positive integer or "all".',
+            },
+            {
+                args: ['profiles', 'create', 'Test', '--brightness'],
+                expected: `tcc-cli: Missing value for --brightness.${String.fromCharCode(10)}Run "tcc-cli profiles create --help" for usage.`,
+            },
+            {
+                args: ['profiles', 'create', 'Test', '--editor', '--description', 'bad'],
+                expected: `tcc-cli: --editor cannot be combined with setting flags.${String.fromCharCode(10)}Run "tcc-cli profiles create --help" for usage.`,
+            },
+        ];
+        for (const { args, expected } of cases) {
+            const result = await runMissingBusCommand(args);
+            expect(result.code).toBe(2);
+            expect(result.stdout).toBe('');
+            expect(result.stderr).toBe(`${expected}${String.fromCharCode(10)}`);
             expect(result.stderr).not.toContain('tcc-cli: Cannot connect to tccd.');
+            expect(result.stderr).not.toContain('Usage:');
             expect(result.stderr).not.toMatch(/Unhandled|uncaught|node:events|^\s+at /im);
-            if (expectedCode === 0) {
-                expect(result.stderr).toBe('');
-                expect(result.stdout).toContain('Profile commands:');
-            } else {
-                expect(result.stdout).toBe('');
-                expect(result.stderr).toContain('tcc-cli: Invalid command.');
-            }
         }
     }, 15000);
 });
