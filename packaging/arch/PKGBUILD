@@ -23,7 +23,7 @@ package_tuxedo-control-center-cli() {
     pkgdesc='Headless TUXEDO Control Center daemon and command-line client'
     depends=('nodejs>=24' 'glibc' 'gcc-libs' 'systemd-libs' 'libxcrypt-compat' 'python' 'dbus' 'polkit' 'upower' 'systemd')
     optdepends=('tuxedo-drivers-dkms: TUXEDO hardware support through tuxedo-io')
-    conflicts=('tuxedo-control-center')
+    conflicts=('tuxedo-control-center' 'tuxedo-control-center-bin')
 
     cd "${srcdir}/${pkgbase}-${pkgver}"
     install -Dm755 "dist/tuxedo-control-center/data/service/tccd" "${pkgdir}${_runtime}/service/tccd"
