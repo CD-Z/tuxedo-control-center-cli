@@ -61,7 +61,7 @@ tcc-cli profiles list
 tcc-cli ppd status
 ```
 
-`active` means TCC owns the standard name and its active profile is readable. `inactive` means the name has no owner. `other-provider` means another provider owns it. If another provider owns the name, stop here and inspect the package and service situation. Do not stop or remove a competing provider as part of this procedure. `Enabled: yes` alone does not prove ownership or provider implementation.
+`active` means TCC owns the standard name and its active profile is readable. `inactive` means the name has no owner. `other-provider` means another provider owns it. Status reports that provider's unique D-Bus owner and, when available, its PID and systemd unit. If the unit is unavailable, inspect the connection with the suggested `busctl --system status <owner>` command. Stop here and inspect the package and service situation. Do not stop or remove a competing provider as part of this procedure. `Enabled: yes` alone does not prove ownership or provider implementation.
 
 **The next command replaces a full settings snapshot, may require authentication, can apply hardware settings, and changes saved AC/battery assignments.** Use actual, distinct profile IDs from `tcc-cli profiles list`; do not run the template unchanged:
 
