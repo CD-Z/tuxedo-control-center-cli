@@ -12,6 +12,9 @@ let originalTarget: string | undefined;
 let originalStageCapture: string | undefined;
 let originalStageModeCapture: string | undefined;
 let originalEditorCapture: string | undefined;
+let originalSettingsTarget: string | undefined;
+let originalSettingsStageCapture: string | undefined;
+let originalSettingsStageModeCapture: string | undefined;
 
 async function writeExecutable(filePath: string, body: string): Promise<void> {
     await fs.writeFile(filePath, `#!/bin/sh\n${body}\n`, { encoding: 'utf8', mode: 0o700 });
@@ -41,6 +44,9 @@ beforeEach(async (): Promise<void> => {
     originalStageCapture = process.env.STAGE_CAPTURE;
     originalStageModeCapture = process.env.STAGE_MODE_CAPTURE;
     originalEditorCapture = process.env.EDITOR_CAPTURE;
+    originalSettingsTarget = process.env.SETTINGS_TARGET;
+    originalSettingsStageCapture = process.env.SETTINGS_STAGE_CAPTURE;
+    originalSettingsStageModeCapture = process.env.SETTINGS_STAGE_MODE_CAPTURE;
 
     testDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'tcc-cli-profile-io-test-'));
     binaryDirectory = path.join(testDirectory, 'bin');
@@ -63,6 +69,9 @@ afterEach(async (): Promise<void> => {
     restore('STAGE_CAPTURE', originalStageCapture);
     restore('STAGE_MODE_CAPTURE', originalStageModeCapture);
     restore('EDITOR_CAPTURE', originalEditorCapture);
+    restore('SETTINGS_TARGET', originalSettingsTarget);
+    restore('SETTINGS_STAGE_CAPTURE', originalSettingsStageCapture);
+    restore('SETTINGS_STAGE_MODE_CAPTURE', originalSettingsStageModeCapture);
     await fs.rm(testDirectory, { recursive: true, force: true });
 });
 
@@ -135,7 +144,11 @@ describe('createProfileIO', (): void => {
 
         await expectAsync(createProfileIO({ helperPath }).saveProfiles('[]'))
             .toBeRejectedWithError(`tcc-cli: Installed profile helper is missing or not executable: ${helperPath}.`);
-        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-profiles-'))).toEqual([]);
+        await expectAsync(createProfileIO({ helperPath }).saveSettings('{}'))
+            .toBeRejectedWithError(`tcc-cli: Installed settings helper is missing or not executable: ${helperPath}.`);
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean =>
+            entry.startsWith('tcc-cli-profiles-') || entry.startsWith('tcc-cli-settings-'),
+        )).toEqual([]);
     });
 
 
@@ -167,6 +180,101 @@ describe('createProfileIO', (): void => {
         expect((await fs.readFile(stageModeCapture, 'utf8')).trim()).toBe('600');
         await expectMissing((await fs.readFile(stageCapture, 'utf8')).trim());
         expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-profiles-'))).toEqual([]);
+    });
+
+    it('reports settings helper failure and cleans the private staging data', async (): Promise<void> => {
+        await installFakePkexec();
+        const settingsPath = path.join(testDirectory, 'saved settings.json');
+        const helperPath = path.join(testDirectory, 'write-then-fail settings helper');
+        const stageCapture = path.join(testDirectory, 'settings-stage-path.txt');
+        const stageModeCapture = path.join(testDirectory, 'settings-stage-mode.txt');
+        const payload = '{"ppd":{"enabled":true}}\n';
+        process.env.SETTINGS_TARGET = settingsPath;
+        process.env.SETTINGS_STAGE_CAPTURE = stageCapture;
+        process.env.SETTINGS_STAGE_MODE_CAPTURE = stageModeCapture;
+        await fs.writeFile(settingsPath, '{}', 'utf8');
+        await writeExecutable(
+            helperPath,
+            '[ "$1" = "--new_settings" ] || exit 3\n' +
+            '[ "$(stat -c \'%a\' "$(dirname "$2")")" = "700" ] || exit 4\n' +
+            '[ "$(stat -c \'%a\' "$2")" = "600" ] || exit 5\n' +
+            'printf \'%s\\n\' "$2" > "$SETTINGS_STAGE_CAPTURE"\n' +
+            'stat -c \'%a\' "$2" > "$SETTINGS_STAGE_MODE_CAPTURE"\n' +
+            'cp "$2" "$SETTINGS_TARGET"\n' +
+            'exit 17',
+        );
+
+        await expectAsync(createProfileIO({ settingsPath, helperPath }).saveSettings(payload))
+            .toBeRejectedWithError(
+                'tcc-cli: Could not confirm settings save: pkexec exited with status 17; the settings file may already have changed.',
+            );
+        expect(await fs.readFile(settingsPath, 'utf8')).toBe(payload);
+        expect((await fs.readFile(stageModeCapture, 'utf8')).trim()).toBe('600');
+        await expectMissing((await fs.readFile(stageCapture, 'utf8')).trim());
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-settings-')))
+            .toEqual([]);
+    });
+
+    it('reports settings authorization cancellation and cleans staged data', async (): Promise<void> => {
+        await installFakePkexec();
+        const settingsPath = path.join(testDirectory, 'saved settings.json');
+        const helperPath = path.join(testDirectory, 'settings helper');
+        await fs.writeFile(settingsPath, '{}', 'utf8');
+        await writeExecutable(path.join(binaryDirectory, 'pkexec'), 'exit 126');
+        await writeExecutable(helperPath, 'exit 0');
+
+        await expectAsync(createProfileIO({ settingsPath, helperPath }).saveSettings('{"ppd":{"enabled":true}}'))
+            .toBeRejectedWithError(
+                'tcc-cli: Could not confirm settings save: pkexec exited with status 126; the settings file may already have changed.',
+            );
+        expect(await fs.readFile(settingsPath, 'utf8')).toBe('{}');
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-settings-')))
+            .toEqual([]);
+    });
+
+    it('reports settings pkexec spawn failures and cleans staged data', async (): Promise<void> => {
+        const settingsPath = path.join(testDirectory, 'saved settings.json');
+        const helperPath = path.join(testDirectory, 'settings helper');
+        await fs.writeFile(settingsPath, '{}', 'utf8');
+        await writeExecutable(helperPath, 'exit 0');
+        process.env.PATH = path.join(testDirectory, 'missing-bin');
+
+        await expectAsync(createProfileIO({ settingsPath, helperPath }).saveSettings('{"ppd":{"enabled":true}}'))
+            .toBeRejectedWithError(/^tcc-cli: Could not confirm settings save: could not start pkexec:/);
+        expect(await fs.readFile(settingsPath, 'utf8')).toBe('{}');
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-settings-')))
+            .toEqual([]);
+    });
+
+    it('rejects missing settings readback after a successful helper exit', async (): Promise<void> => {
+        await installFakePkexec();
+        const settingsPath = path.join(testDirectory, 'missing settings.json');
+        const helperPath = path.join(testDirectory, 'no-write settings helper');
+        await writeExecutable(helperPath, 'exit 0');
+
+        await expectAsync(createProfileIO({ settingsPath, helperPath }).saveSettings('{"ppd":{"enabled":true}}'))
+            .toBeRejectedWithError(
+                /^tcc-cli: Could not confirm settings save: could not read saved settings: .*; the settings file may already have changed\.$/,
+            );
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-settings-')))
+            .toEqual([]);
+    });
+
+    it('rejects mismatching settings readback and keeps the helper changes', async (): Promise<void> => {
+        await installFakePkexec();
+        const settingsPath = path.join(testDirectory, 'saved settings.json');
+        const helperPath = path.join(testDirectory, 'mismatching settings helper');
+        process.env.SETTINGS_TARGET = settingsPath;
+        await fs.writeFile(settingsPath, '{}', 'utf8');
+        await writeExecutable(helperPath, 'printf \'{"other":true}\' > "$SETTINGS_TARGET"\nexit 0');
+
+        await expectAsync(createProfileIO({ settingsPath, helperPath }).saveSettings('{"ppd":{"enabled":true}}'))
+            .toBeRejectedWithError(
+                'tcc-cli: Could not confirm settings save: saved settings data does not match the requested settings; the settings file may already have changed.',
+            );
+        expect(await fs.readFile(settingsPath, 'utf8')).toBe('{"other":true}');
+        expect((await fs.readdir(testDirectory)).filter((entry): boolean => entry.startsWith('tcc-cli-settings-')))
+            .toEqual([]);
     });
 
     it('rejects a zero helper exit without matching disk data and removes the staging file', async (): Promise<void> => {

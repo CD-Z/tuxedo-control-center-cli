@@ -5,6 +5,10 @@
  */
 
 export type StandardProfile = 'power-saver' | 'balanced' | 'performance';
+export type PowerProfilesRuntimeState =
+    | { state: 'active'; activeProfile: StandardProfile }
+    | { state: 'inactive' }
+    | { state: 'other-provider' };
 
 export interface IPowerProfilesConfig {
     enabled: boolean;

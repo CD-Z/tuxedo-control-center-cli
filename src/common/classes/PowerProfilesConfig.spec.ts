@@ -67,4 +67,19 @@ describe('PowerProfilesConfig', (): void => {
             PowerProfilesConfig.resolve(modernCandidate, [custom], TUXEDODevice.POLARIS1XI02, config),
         ).toThrowError(/Invalid override/);
     });
+
+    it('resolves mappings independently of saved assignments', (): void => {
+        const candidate = settings();
+        const catalog = config.getDefaultProfiles(TUXEDODevice.POLARIS1XI02);
+        candidate.stateMap.power_ac = 'unmapped-id';
+
+        expect(PowerProfilesConfig.resolveMappings(candidate.ppd.profiles, catalog)).toEqual({
+            'power-saver': DefaultProfileIDs.MaxEnergySave,
+            balanced: DefaultProfileIDs.Office,
+            performance: DefaultProfileIDs.HighPerformance,
+        });
+        expect(() => PowerProfilesConfig.resolveCatalog(candidate, catalog)).toThrowError(
+            'Saved power_ac assignment is not mapped by power-profiles-daemon',
+        );
+    });
 });

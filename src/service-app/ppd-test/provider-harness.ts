@@ -1,7 +1,7 @@
 import * as dbus from 'dbus-next';
 import { defaultSettings, ProfileStates, type ITccSettings } from '../../common/models/TccSettings';
 import type { ITccProfile } from '../../common/models/TccProfile';
-import type { StandardProfile } from '../../common/models/PowerProfiles';
+import { PowerProfilesConfig } from '../../common/classes/PowerProfilesConfig';
 import { DBusAuthorization } from '../classes/DBusAuthorization';
 import { ProfileSelection } from '../classes/ProfileSelection';
 import type { PowerProfilesBackend, PowerProfilesBus } from '../classes/PowerProfilesService';
@@ -19,6 +19,7 @@ export const PROFILE_IDS = {
     'power-saver': 'test-power-saver',
     balanced: 'test-balanced',
     performance: 'test-performance',
+    alternate: 'test-alternate',
 } as const;
 
 export interface TestProfile extends ITccProfile {
@@ -47,6 +48,7 @@ export function testProfiles(): TestProfile[] {
         { id: PROFILE_IDS['power-saver'], name: 'Quiet profile' },
         { id: PROFILE_IDS.balanced, name: 'Everyday profile' },
         { id: PROFILE_IDS.performance, name: 'Fast profile' },
+        { id: PROFILE_IDS.alternate, name: 'Alternate profile' },
     ] as unknown as TestProfile[];
 }
 
@@ -59,7 +61,11 @@ export function testSettings(): ITccSettings {
         },
         ppd: {
             enabled: true,
-            profiles: { ...PROFILE_IDS },
+            profiles: {
+                'power-saver': PROFILE_IDS['power-saver'],
+                balanced: PROFILE_IDS.balanced,
+                performance: PROFILE_IDS.performance,
+            },
         },
     };
 }
@@ -129,6 +135,13 @@ class FakeTccInterface extends dbus.interface.Interface {
     public GetProfilesJSON(): string {
         return JSON.stringify(this.selector.profiles);
     }
+    public GetSettingsJSON(): string {
+        const settings = this.selector.settings;
+        if (settings === undefined) {
+            throw new Error('TCC settings are unavailable before selector initialization');
+        }
+        return JSON.stringify(settings);
+    }
 
     public GetActiveProfileJSON(): string {
         return JSON.stringify(this.selector.activeProfile);
@@ -146,6 +159,7 @@ FakeTccInterface.configureMembers({
     methods: {
         dbusAvailable: { outSignature: 'b' },
         GetProfilesJSON: { outSignature: 's' },
+        GetSettingsJSON: { outSignature: 's' },
         GetActiveProfileJSON: { outSignature: 's' },
         SetTempProfileById: { inSignature: 's', outSignature: 'b' },
     },
@@ -172,6 +186,7 @@ export interface PowerProfilesIntegrationHarness {
 export interface IntegrationHarnessOptions {
     busAddress?: string;
     claimTccName?: boolean;
+    initialSettings?: ITccSettings;
     persistConfiguration?: (settingsJSON: string, profilesJSON: string) => Promise<boolean>;
 }
 
@@ -205,7 +220,7 @@ export async function createPowerProfilesHarness(
     }
 
     const profiles = testProfiles();
-    const settings = testSettings();
+    const settings = structuredClone(options.initialSettings ?? testSettings());
     const authorizationCalls: AuthorizationCall[] = [];
     const polkitSubjects: PolkitSubject[] = [];
     const appliedProfiles: string[] = [];
@@ -229,20 +244,7 @@ export async function createPowerProfilesHarness(
     const selector = new ProfileSelection({
         catalog: () => profiles,
         resolveMappings(candidateSettings, catalog) {
-            if (candidateSettings.ppd?.enabled !== true) {
-                return {};
-            }
-            const overrides = candidateSettings.ppd.profiles ?? {};
-            const result: Partial<Record<StandardProfile, string>> = {};
-            for (const standard of ['power-saver', 'balanced', 'performance'] as const) {
-                const id = overrides[standard];
-                if (typeof id === 'string' && catalog.some((profile) => profile.id === id)) {
-                    result[standard] = id;
-                } else if (standard !== 'performance' || id !== null) {
-                    throw new Error(`Missing test mapping for '${standard}'`);
-                }
-            }
-            return result;
+            return PowerProfilesConfig.resolveCatalog(candidateSettings, catalog);
         },
         powerSource: () => ProfileStates.AC,
         async applyProfile(profile) {

@@ -12,6 +12,7 @@ import { TccPaths } from '../common/classes/TccPaths';
 export interface ProfileIO {
     readSavedProfiles(): Promise<string>;
     saveProfiles(json: string): Promise<void>;
+    saveSettings(json: string): Promise<void>;
     selectBase(profiles: readonly { id: string; name: string }[]): Promise<string | undefined>;
     editProfile(json: string): Promise<string | undefined>;
     readCpuCapabilities(): Promise<{
@@ -23,6 +24,7 @@ export interface ProfileIO {
 
 export interface ProfileIOOptions {
     profilesPath?: string;
+    settingsPath?: string;
     helperPath?: string;
 }
 
@@ -86,15 +88,89 @@ function parseJson(json: string, purpose: string): unknown {
     }
 }
 
-function confirmationFailure(reason: string, helperWasRun: boolean): Error {
-    const changedNote = helperWasRun ? '; the profiles file may already have changed' : '';
-    return cliError(`Could not confirm profile save: ${reason}${changedNote}.`);
+type SaveKind = 'profile' | 'settings';
+
+function confirmationFailure(kind: SaveKind, reason: string, helperWasRun: boolean): Error {
+    const fileName = kind === 'profile' ? 'profiles' : 'settings';
+    const changedNote = helperWasRun ? `; the ${fileName} file may already have changed` : '';
+    return cliError(`Could not confirm ${kind} save: ${reason}${changedNote}.`);
+}
+
+async function saveThroughHelper(
+    json: string,
+    kind: SaveKind,
+    targetPath: string,
+    helperPath: string,
+): Promise<void> {
+    const fileName = kind === 'profile' ? 'profiles' : 'settings';
+    const expectedData = parseJson(json, `Invalid ${kind} data`);
+    let helperStat: Stats;
+    try {
+        helperStat = await fs.stat(helperPath);
+        await fs.access(helperPath, constants.X_OK);
+    } catch {
+        throw cliError(`Installed ${kind} helper is missing or not executable: ${helperPath}.`);
+    }
+    if (!helperStat.isFile()) {
+        throw cliError(`Installed ${kind} helper is missing or not executable: ${helperPath}.`);
+    }
+
+    let temporaryDirectory: string;
+    try {
+        temporaryDirectory = await makePrivateDirectory(`tcc-cli-${fileName}-`);
+    } catch (error: unknown) {
+        throw cliError(`Could not stage ${fileName} for saving: ${errorMessage(error)}.`);
+    }
+
+    try {
+        const stagingPath = path.join(temporaryDirectory, `${fileName}.json`);
+        try {
+            await fs.writeFile(stagingPath, json, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+            await fs.chmod(stagingPath, 0o600);
+        } catch (error: unknown) {
+            throw cliError(`Could not stage ${fileName} for saving: ${errorMessage(error)}.`);
+        }
+
+        const helperOption = kind === 'profile' ? '--new_profiles' : '--new_settings';
+        let child: ChildProcess;
+        try {
+            child = spawn('pkexec', [helperPath, helperOption, stagingPath], {
+                stdio: ['inherit', 'pipe', 'inherit'],
+            });
+        } catch (error: unknown) {
+            throw confirmationFailure(kind, `could not start pkexec: ${errorMessage(error)}`, false);
+        }
+        child.stdout?.resume();
+        const helperResult = await waitForChild(child);
+        if (helperResult.error) {
+            throw confirmationFailure(kind, `could not start pkexec: ${errorMessage(helperResult.error)}`, false);
+        }
+        if (helperResult.code !== 0) {
+            const result = helperResult.signal
+                ? `pkexec exited after signal ${helperResult.signal}`
+                : `pkexec exited with status ${helperResult.code ?? 'unknown'}`;
+            throw confirmationFailure(kind, result, true);
+        }
+
+        let savedData: unknown;
+        try {
+            const savedJson = await fs.readFile(targetPath, 'utf8');
+            savedData = JSON.parse(savedJson) as unknown;
+        } catch (error: unknown) {
+            throw confirmationFailure(kind, `could not read saved ${fileName}: ${errorMessage(error)}`, true);
+        }
+        if (!isDeepStrictEqual(savedData, expectedData)) {
+            throw confirmationFailure(kind, `saved ${kind} data does not match the requested ${fileName}`, true);
+        }
+    } finally {
+        await fs.rm(temporaryDirectory, { recursive: true, force: true });
+    }
 }
 
 export function createProfileIO(options: ProfileIOOptions = {}): ProfileIO {
     const profilesPath = options.profilesPath ?? TccPaths.PROFILES_FILE;
+    const settingsPath = options.settingsPath ?? TccPaths.SETTINGS_FILE;
     const helperPath = options.helperPath ?? TccPaths.TCCD_EXEC_FILE;
-
     return {
         async readSavedProfiles(): Promise<string> {
             try {
@@ -105,67 +181,11 @@ export function createProfileIO(options: ProfileIOOptions = {}): ProfileIO {
         },
 
         async saveProfiles(json: string): Promise<void> {
-            const expectedProfiles = parseJson(json, 'Invalid profile data');
-            let helperStat: Stats;
-            try {
-                helperStat = await fs.stat(helperPath);
-                await fs.access(helperPath, constants.X_OK);
-            } catch {
-                throw cliError(`Installed profile helper is missing or not executable: ${helperPath}.`);
-            }
-            if (!helperStat.isFile()) {
-                throw cliError(`Installed profile helper is missing or not executable: ${helperPath}.`);
-            }
+            await saveThroughHelper(json, 'profile', profilesPath, helperPath);
+        },
 
-            let temporaryDirectory: string;
-            try {
-                temporaryDirectory = await makePrivateDirectory('tcc-cli-profiles-');
-            } catch (error: unknown) {
-                throw cliError(`Could not stage profiles for saving: ${errorMessage(error)}.`);
-            }
-
-            try {
-                const stagingPath = path.join(temporaryDirectory, 'profiles.json');
-                try {
-                    await fs.writeFile(stagingPath, json, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
-                    await fs.chmod(stagingPath, 0o600);
-                } catch (error: unknown) {
-                    throw cliError(`Could not stage profiles for saving: ${errorMessage(error)}.`);
-                }
-
-                let child: ChildProcess;
-                try {
-                    child = spawn('pkexec', [helperPath, '--new_profiles', stagingPath], {
-                        stdio: ['inherit', 'pipe', 'inherit'],
-                    });
-                } catch (error: unknown) {
-                    throw confirmationFailure(`could not start pkexec: ${errorMessage(error)}`, false);
-                }
-                child.stdout?.resume();
-                const helperResult = await waitForChild(child);
-                if (helperResult.error) {
-                    throw confirmationFailure(`could not start pkexec: ${errorMessage(helperResult.error)}`, false);
-                }
-                if (helperResult.code !== 0) {
-                    const result = helperResult.signal
-                        ? `pkexec exited after signal ${helperResult.signal}`
-                        : `pkexec exited with status ${helperResult.code ?? 'unknown'}`;
-                    throw confirmationFailure(result, true);
-                }
-
-                let savedProfiles: unknown;
-                try {
-                    const savedJson = await fs.readFile(profilesPath, 'utf8');
-                    savedProfiles = JSON.parse(savedJson) as unknown;
-                } catch (error: unknown) {
-                    throw confirmationFailure(`could not read saved profiles: ${errorMessage(error)}`, true);
-                }
-                if (!isDeepStrictEqual(savedProfiles, expectedProfiles)) {
-                    throw confirmationFailure('saved profile data does not match the requested profiles', true);
-                }
-            } finally {
-                await fs.rm(temporaryDirectory, { recursive: true, force: true });
-            }
+        async saveSettings(json: string): Promise<void> {
+            await saveThroughHelper(json, 'settings', settingsPath, helperPath);
         },
 
         async selectBase(profiles: readonly { id: string; name: string }[]): Promise<string | undefined> {
