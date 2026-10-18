@@ -1,6 +1,6 @@
 pkgbase=tuxedo-control-center-cli
 pkgname=('tuxedo-control-center-cli' 'tuxedo-control-center-cli-ppd')
-pkgver=3.0.10
+pkgver=3.0.11
 pkgrel=1
 pkgdesc='Headless TUXEDO Control Center daemon and command-line client'
 arch=('x86_64')
