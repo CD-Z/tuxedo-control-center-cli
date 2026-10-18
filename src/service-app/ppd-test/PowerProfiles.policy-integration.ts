@@ -40,8 +40,18 @@ async function startPrivateSystemBus(includeTccPolicy: boolean): Promise<Private
     <listen>unix:path=${socket}</listen>
     <auth>EXTERNAL</auth>
     <policy context="default">
+        <!-- Keep the private bus defaults needed for ordinary system-bus clients. -->
+        <allow user="*" />
+        <deny own="*" />
+        <deny send_type="method_call" />
+        <allow send_type="signal" />
+        <allow send_requested_reply="true" send_type="method_return" />
+        <allow send_requested_reply="true" send_type="error" />
+        <allow receive_type="method_call" />
+        <allow receive_type="method_return" />
+        <allow receive_type="error" />
+        <allow receive_type="signal" />
         <allow send_destination="org.freedesktop.DBus" />
-        <allow receive_sender="org.freedesktop.DBus" />
     </policy>
     <policy user="root">
         <allow own="org.freedesktop.PolicyKit1" />
@@ -124,9 +134,9 @@ interface CommandResult {
     stderr: string;
 }
 
-function runAsNobody(address: string, args: string[]): Promise<CommandResult> {
+function runAsNobody(command: 'busctl' | 'dbus-send', args: string[]): Promise<CommandResult> {
     const { promise, resolve, reject } = Promise.withResolvers<CommandResult>();
-    const child = spawn('runuser', ['-u', 'nobody', '--', 'busctl', `--address=${address}`, ...args], {
+    const child = spawn('runuser', ['-u', 'nobody', '--', command, ...args], {
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: 5000,
     });
@@ -162,23 +172,27 @@ describe('Power Profiles system-bus policy integration', () => {
         let harness: PowerProfilesIntegrationHarness | undefined;
         try {
             privateBus = await startPrivateSystemBus(false);
-            harness = await createPowerProfilesHarness({ busAddress: privateBus.address });
+            harness = await createPowerProfilesHarness({
+                busAddress: privateBus.address,
+            });
             expect(harness.service.providerIsOwned).toBeTrue();
 
-            const deniedNameRequest = await runAsNobody(privateBus.address, [
-                'call',
-                'org.freedesktop.DBus',
+            const deniedNameRequest = await runAsNobody('dbus-send', [
+                `--bus=${privateBus.address}`,
+                '--print-reply',
+                '--type=method_call',
+                '--reply-timeout=3000',
+                '--dest=org.freedesktop.DBus',
                 '/org/freedesktop/DBus',
-                'org.freedesktop.DBus',
-                'RequestName',
-                'su',
-                POWER_PROFILES_NAME,
-                '0',
+                'org.freedesktop.DBus.RequestName',
+                `string:${POWER_PROFILES_NAME}`,
+                'uint32:0',
             ]);
-            expect(deniedNameRequest.status).not.toBe(0);
-            expect(errorText(deniedNameRequest)).toContain('AccessDenied');
+            expect(deniedNameRequest.status).not.toBe(0, errorText(deniedNameRequest));
+            expect(deniedNameRequest.stderr).toContain('Error org.freedesktop.DBus.Error.AccessDenied:');
 
-            const introspection = await runAsNobody(privateBus.address, [
+            const introspection = await runAsNobody('busctl', [
+                `--address=${privateBus.address}`,
                 'introspect',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -186,7 +200,8 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(introspection.status).toBe(0, errorText(introspection));
             expect(errorText(introspection)).toContain(POWER_PROFILES_INTERFACE);
 
-            const active = await runAsNobody(privateBus.address, [
+            const active = await runAsNobody('busctl', [
+                `--address=${privateBus.address}`,
                 'get-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -196,17 +211,20 @@ describe('Power Profiles system-bus policy integration', () => {
             expect(active.status).toBe(0, errorText(active));
             expect(errorText(active)).toContain('balanced');
 
-            const unrelatedCall = await runAsNobody(privateBus.address, [
-                'call',
-                POWER_PROFILES_NAME,
+            const unrelatedCall = await runAsNobody('dbus-send', [
+                `--bus=${privateBus.address}`,
+                '--print-reply',
+                '--type=method_call',
+                '--reply-timeout=3000',
+                `--dest=${POWER_PROFILES_NAME}`,
                 POWER_PROFILES_PATH,
-                'org.example.Unrelated',
-                'Ping',
+                'org.example.Unrelated.Ping',
             ]);
-            expect(unrelatedCall.status).not.toBe(0);
-            expect(errorText(unrelatedCall)).toContain('AccessDenied');
+            expect(unrelatedCall.status).not.toBe(0, errorText(unrelatedCall));
+            expect(unrelatedCall.stderr).toContain('Error org.freedesktop.DBus.Error.AccessDenied:');
 
-            const switchResult = await runAsNobody(privateBus.address, [
+            const switchResult = await runAsNobody('busctl', [
+                `--address=${privateBus.address}`,
                 'set-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -222,7 +240,8 @@ describe('Power Profiles system-bus policy integration', () => {
             );
             expect(harness.authorizationCalls.at(-1)?.sender).toMatch(/^:[A-Za-z0-9_-]+\./);
 
-            const reread = await runAsNobody(privateBus.address, [
+            const reread = await runAsNobody('busctl', [
+                `--address=${privateBus.address}`,
                 'get-property',
                 POWER_PROFILES_NAME,
                 POWER_PROFILES_PATH,
@@ -262,18 +281,19 @@ describe('Power Profiles system-bus policy integration', () => {
                 },
             });
 
-            const nonRootReplacement = await runAsNobody(privateBus.address, [
-                'call',
-                TCC_NAME,
+            const nonRootReplacement = await runAsNobody('dbus-send', [
+                `--bus=${privateBus.address}`,
+                '--print-reply',
+                '--type=method_call',
+                '--reply-timeout=3000',
+                `--dest=${TCC_NAME}`,
                 TCC_PATH,
-                TCC_INTERFACE,
-                'ReplaceProfileConfiguration',
-                'ss',
-                settingsJSON,
-                profilesJSON,
+                `${TCC_INTERFACE}.ReplaceProfileConfiguration`,
+                `string:${settingsJSON}`,
+                `string:${profilesJSON}`,
             ]);
-            expect(nonRootReplacement.status).not.toBe(0);
-            expect(errorText(nonRootReplacement)).toContain('AccessDenied');
+            expect(nonRootReplacement.status).not.toBe(0, errorText(nonRootReplacement));
+            expect(nonRootReplacement.stderr).toContain('Error org.freedesktop.DBus.Error.AccessDenied:');
             await expectMissing(settingsPath);
             await expectMissing(profilesPath);
             expect(harness.configurationReplacements).toEqual([]);
