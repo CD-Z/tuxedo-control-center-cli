@@ -273,19 +273,14 @@ export class ConfigService implements OnDestroy {
         );
     }
 
-    public async saveSettings(): Promise<boolean> {
-        return new Promise<boolean>(
-            (resolve: (value: boolean | PromiseLike<boolean>) => void, _reject: (reason?: unknown) => void): void => {
-                const customProfilesCopy: ITccProfile[] = this.copyConfig<ITccProfile[]>(this.customProfiles);
-                const newSettings: ITccSettings = this.copyConfig<ITccSettings>(this.getSettings());
-                window.config.pkexecWriteConfigAsync(newSettings, customProfilesCopy).then((success: boolean): void => {
-                    if (success) {
-                        this.updateConfigData();
-                    }
-                    resolve(success);
-                });
-            },
-        );
+    public async saveSettings(settings: ITccSettings = this.getSettings()): Promise<boolean> {
+        const customProfilesCopy: ITccProfile[] = this.copyConfig<ITccProfile[]>(this.customProfiles);
+        const settingsCopy: ITccSettings = this.copyConfig<ITccSettings>(settings);
+        const success: boolean = await window.config.pkexecWriteConfigAsync(settingsCopy, customProfilesCopy);
+        if (success) {
+            this.updateConfigData();
+        }
+        return success;
     }
 
     private transformPrimeStatus(status: string): string {

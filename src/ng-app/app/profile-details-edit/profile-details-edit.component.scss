@@ -17,6 +17,12 @@
  * along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+.ppd-assignment-error {
+    color: var(--mat-sys-error, #b3261e);
+    margin: 0 0 1rem;
+    overflow-wrap: anywhere;
+}
+
 .backlight-settings-edit {
     overflow-x: hidden;
 

@@ -408,6 +408,57 @@ export class TccDBusClientService implements OnDestroy {
             }
         }
     }
+    public async refreshSettings(): Promise<ITccSettings> {
+        const dbusAvailable: boolean = await window.dbusAPI.dbusAvailable();
+        this.dbusAvailable.next(dbusAvailable);
+        this.isDbusAvailable = dbusAvailable;
+        if (!dbusAvailable) {
+            throw new Error('tcc-dbus-client: refreshSettings: dbus not available');
+        }
+
+        const settingsJSON: string = await window.dbusAPI.getSettingsJSON();
+        if (typeof settingsJSON !== 'string' || settingsJSON.length === 0) {
+            throw new Error('tcc-dbus-client: refreshSettings: settings data is unavailable');
+        }
+
+        let parsedSettings: unknown;
+        try {
+            parsedSettings = JSON.parse(settingsJSON);
+        } catch (err: unknown) {
+            throw new Error(`tcc-dbus-client: refreshSettings: unexpected error parsing settings => ${err}`);
+        }
+
+        if (parsedSettings === null || typeof parsedSettings !== 'object' || Array.isArray(parsedSettings)) {
+            throw new Error('tcc-dbus-client: refreshSettings: settings root must be an object');
+        }
+        const candidate: Record<string, unknown> = parsedSettings as Record<string, unknown>;
+        const stateMap: unknown = candidate.stateMap;
+        if (
+            stateMap === null ||
+            typeof stateMap !== 'object' ||
+            Array.isArray(stateMap) ||
+            typeof (stateMap as Record<string, unknown>).power_ac !== 'string' ||
+            typeof (stateMap as Record<string, unknown>).power_bat !== 'string'
+        ) {
+            throw new Error('tcc-dbus-client: refreshSettings: settings stateMap is invalid');
+        }
+        if ('ppd' in candidate) {
+            const ppd: unknown = candidate.ppd;
+            if (
+                ppd === null ||
+                typeof ppd !== 'object' ||
+                Array.isArray(ppd) ||
+                typeof (ppd as Record<string, unknown>).enabled !== 'boolean'
+            ) {
+                throw new Error('tcc-dbus-client: refreshSettings: settings Power Profiles configuration is invalid');
+            }
+        }
+
+        const settings: ITccSettings = parsedSettings as ITccSettings;
+        this.settings.next(settings);
+        this.previousSettingsJSON = settingsJSON;
+        return settings;
+    }
 
     public setKeyboardBacklightStates(keyboardBacklightStates: Array<KeyboardBacklightStateInterface>): void {
         window.dbusAPI.setKeyboardBacklightStatesJSON(JSON.stringify(keyboardBacklightStates));

@@ -17,14 +17,83 @@
  * along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { TestBed, type TestBedStatic } from '@angular/core/testing';
+import { defaultSettings } from '../../common/models/TccSettings';
+import type { ITccSettings } from '../../common/models/TccSettings';
+import type { IDbusClientAPI } from '../../e-app/preloadAPIs/DbusClientAPI';
 import { TccDBusClientService } from './tcc-dbus-client.service';
+import type { UtilsService } from './utils.service';
 
-describe('TccDbusClientService', (): void => {
-    beforeEach((): TestBedStatic => TestBed.configureTestingModule({}));
+describe('TccDBusClientService.refreshSettings', (): void => {
+    let service: TccDBusClientService;
+    let dbusAvailable: jasmine.Spy;
+    let getSettingsJSON: jasmine.Spy;
 
-    it('should be created', (): void => {
-        const service: TccDBusClientService = TestBed.get(TccDBusClientService);
-        expect(service).toBeTruthy();
+    const makeSettings = (powerAc: string): ITccSettings => ({
+        ...defaultSettings,
+        stateMap: { power_ac: powerAc, power_bat: 'battery-profile' },
+    });
+
+    beforeEach((): void => {
+        dbusAvailable = jasmine.createSpy('dbusAvailable').and.resolveTo(false);
+        getSettingsJSON = jasmine.createSpy('getSettingsJSON').and.resolveTo(undefined);
+        window.dbusAPI = {
+            dbusAvailable,
+            getSettingsJSON,
+            getDeviceJSON: jasmine.createSpy('getDeviceJSON').and.resolveTo('{}'),
+        } as unknown as IDbusClientAPI;
+        service = new TccDBusClientService({} as UtilsService);
+    });
+
+    afterEach((): void => {
+        service.ngOnDestroy();
+    });
+
+    it('returns and publishes a fresh authoritative settings read', async (): Promise<void> => {
+        const freshSettings: ITccSettings = makeSettings('fresh-ac-profile');
+        dbusAvailable.and.resolveTo(true);
+        getSettingsJSON.and.resolveTo(JSON.stringify(freshSettings));
+
+        const result: ITccSettings = await service.refreshSettings();
+
+        expect(result).toEqual(freshSettings);
+        expect(service.settings.value).toEqual(freshSettings);
+        expect(dbusAvailable).toHaveBeenCalled();
+        expect(getSettingsJSON).toHaveBeenCalled();
+    });
+
+    it('rejects unavailable or malformed authoritative data instead of returning cached settings', async (): Promise<void> => {
+        const previouslyCached: ITccSettings = makeSettings('cached-ac-profile');
+        service.settings.next(previouslyCached);
+
+        dbusAvailable.and.resolveTo(false);
+        await expectAsync(service.refreshSettings()).toBeRejected();
+        expect(service.settings.value).toEqual(previouslyCached);
+
+        dbusAvailable.and.resolveTo(true);
+        for (const invalidValue of [
+            undefined,
+            '',
+            '{',
+            'null',
+            '[]',
+            '{}',
+            JSON.stringify({ ...makeSettings('bad'), stateMap: {} }),
+        ]) {
+            getSettingsJSON.and.resolveTo(invalidValue);
+            await expectAsync(service.refreshSettings()).toBeRejected();
+            expect(service.settings.value).toEqual(previouslyCached);
+        }
+    });
+
+    it('rejects a present Power Profiles config without a boolean enabled field', async (): Promise<void> => {
+        dbusAvailable.and.resolveTo(true);
+        getSettingsJSON.and.resolveTo(
+            JSON.stringify({
+                ...makeSettings('ac'),
+                ppd: { profiles: { balanced: 'profile-a' } },
+            }),
+        );
+
+        await expectAsync(service.refreshSettings()).toBeRejected();
     });
 });

@@ -3349,6 +3349,252 @@ Commercial register number - Part B of the commercial register - 27755
           <context context-type="linenumber">43</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="ppdSettingsTitle" datatype="html">
+        <source>Power Profiles</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/global-settings/global-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsExplanation" datatype="html">
+        <source>Power Profiles lets desktop power-mode controls select TCC profiles. It requires the provider-enabled daemon and its policies. This panel does not start services or remove another power-profile provider.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsEnabled" datatype="html">
+        <source>Enabled</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsPowerSaver" datatype="html">
+        <source>Power saver</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAutomaticOption" datatype="html">
+        <source>Automatic (default)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsUnavailableSavedProfile" datatype="html">
+        <source>Unavailable saved profile</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsBalanced" datatype="html">
+        <source>Balanced</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsPerformance" datatype="html">
+        <source>Performance</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsNoneOption" datatype="html">
+        <source>None</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAcAssignment" datatype="html">
+        <source>AC profile assignment</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsUnavailableAssignment" datatype="html">
+        <source>Unavailable saved assignment</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsNotMappedOption" datatype="html">
+        <source>(not mapped)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsBatteryAssignment" datatype="html">
+        <source>Battery profile assignment</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsValidationPrefix" datatype="html">
+        <source>Power Profiles settings are invalid:</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAssignmentInvalid" datatype="html">
+        <source>An AC or battery assignment is not in the resolved Power Profiles mappings. Choose a mapped profile to continue.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSavedSettingLabel" datatype="html">
+        <source>Saved provider setting:</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsEnabledStatus" datatype="html">
+        <source>Enabled</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsDisabledStatus" datatype="html">
+        <source>Disabled</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeStatusTitle" datatype="html">
+        <source>Runtime status</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRefreshRuntimeButton" datatype="html">
+        <source>Refresh</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeLoading" datatype="html">
+        <source>Checking runtime status…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnavailable" datatype="html">
+        <source>Power Profiles runtime status is unavailable.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeActiveLabel" datatype="html">
+        <source>Active standard mode:</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePowerSaver" datatype="html">
+        <source>Power saver</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeBalanced" datatype="html">
+        <source>Balanced</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePerformance" datatype="html">
+        <source>Performance</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeInactive" datatype="html">
+        <source>No power-profile provider is active.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeOtherProvider" datatype="html">
+        <source>Another power-profile provider owns the interface.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeOwnerLabel" datatype="html">
+        <source>Owner</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePidLabel" datatype="html">
+        <source>PID</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnitLabel" datatype="html">
+        <source>Unit</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnitUnavailable" datatype="html">
+        <source>Unavailable</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsProviderNotActiveWarning" datatype="html">
+        <source>Settings remain saved, but the TCC Power Profiles provider is not active.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsProviderActiveWhileDisabledWarning" datatype="html">
+        <source>A power-profile provider is active while the TCC provider is disabled.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSaveSuccess" datatype="html">
+        <source>Power Profiles settings were saved and adopted.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSaveFailure" datatype="html">
+        <source>Power Profiles settings could not be saved. Authentication may have been cancelled or the daemon rejected the configuration.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAdoptionMismatch" datatype="html">
+        <source>Settings were written, but the daemon did not adopt the requested Power Profiles configuration.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAdoptionUnverified" datatype="html">
+        <source>Settings were written, but adoption could not be verified.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsApplyButton" datatype="html">
+        <source>Apply</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSavingButton" datatype="html">
+        <source>Saving…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsDiscardButton" datatype="html">
+        <source>Discard</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

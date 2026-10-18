@@ -30,8 +30,11 @@ const distSrc = './dist/tuxedo-control-center';
  * Parse command line parameter and set up the build
  */
 let filenameAddition = '';
-
 process.argv.forEach((parameter, index, array) => {
+    if (parameter === 'dir') {
+        buildSteps.push(buildDir);
+    }
+
     if (parameter.startsWith('deb')) {
         buildSteps.push(buildDeb);
     }
@@ -121,6 +124,38 @@ async function buildDeb(filenameAddition: string): Promise<void> {
             console.error('ERROR at BUILD');
             console.error(error);
         });
+}
+
+/**
+ * Build the bundled Linux directory used by the Arch GUI package.
+ */
+async function buildDir(_filenameAddition: string): Promise<void> {
+    const config: builder.Configuration = {
+        appId: 'tuxedocontrolcenter',
+        directories: {
+            output: './dist/packages',
+        },
+        compression: 'maximum',
+        files: [`${distSrc}/**/*`],
+        extraResources: [
+            {
+                from: `${distSrc}/data`,
+                to: 'dist/tuxedo-control-center/data',
+                filter: ['**/*', '!service/**', '!cli/**', '!camera/**'],
+            },
+        ],
+        linux: {
+            target: ['dir'],
+            category: 'System',
+            icon: `${distSrc}/data/dist-data/tuxedo-control-center_256.svg`,
+            executableName: 'tuxedo-control-center',
+        },
+    };
+    console.log('\x1b[36m%s\x1b[0m', 'Create Linux directory package');
+    await builder.build({
+        targets: builder.Platform.LINUX.createTarget('dir', builder.Arch.x64),
+        config,
+    });
 }
 
 /**

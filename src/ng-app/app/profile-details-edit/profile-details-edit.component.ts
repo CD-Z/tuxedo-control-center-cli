@@ -36,7 +36,8 @@ import { GridParamsProfileSettings, GridParamsSettings, type IGridParams } from 
 import type { SystemProfileInfo } from '../../../common/models/ISystemProfileInfo';
 import type { ITccFanProfile } from '../../../common/models/TccFanTable';
 import type { ITccProfile, ITccProfileDisplay } from '../../../common/models/TccProfile';
-import type { ITccSettings } from '../../../common/models/TccSettings';
+import { PowerProfilesConfig } from '../../../common/classes/PowerProfilesConfig';
+import { ProfileStates, type ITccSettings } from '../../../common/models/TccSettings';
 import type { TDPInfo } from '../../../native-lib/TuxedoIOAPI';
 // biome-ignore lint: injection token
 import { CompatibilityService } from '../compatibility.service';
@@ -119,6 +120,7 @@ export class ProfileDetailsEditComponent implements OnInit, OnDestroy {
     public selectStateControl: FormControl;
     public profileFormGroup: FormGroup;
     public profileFormProgress: boolean = false;
+    public powerProfilesAssignmentError: string | null = null;
 
     private subscriptions: Subscription = new Subscription();
     private fansMinSpeedSubscription: Subscription = new Subscription();
@@ -413,33 +415,63 @@ export class ProfileDetailsEditComponent implements OnInit, OnDestroy {
             this.profileFormGroup.get('fan').get('customFanCurve').patchValue(customFanCurveValues);
         }
 
-        this.profileFormProgress = true;
-        this.utils.pageDisabled = true;
-
-        if (this.profileFormGroup.valid) {
-            const formProfileData: ITccProfile = this.profileFormGroup.value;
-            // Note: state selection disabled on profile edit for now
-            const newProfileStateAssignments: string[] = this.selectStateControl.value;
-
-            this.config
-                .writeProfile(this.viewProfile.id, formProfileData, newProfileStateAssignments)
-                .then((success: boolean): void => {
-                    if (success) {
-                        this.profileFormGroup.markAsPristine();
-                        this.selectStateControl.markAsPristine();
-                        this.profile = formProfileData;
-                        this.state.initializeProfileNames();
-                    }
-                    this.profileFormProgress = false;
-                    this.utils.pageDisabled = false;
-                });
-        } else {
+        if (!this.profileFormGroup.valid) {
             this.profileFormProgress = false;
             this.utils.pageDisabled = false;
+            return;
         }
+
+        const formProfileData: ITccProfile = this.profileFormGroup.value;
+        const newProfileStateAssignments: string[] = this.selectStateControl.value;
+        this.powerProfilesAssignmentError = null;
+
+        const settings: ITccSettings = this.config.getSettings();
+        if (settings.ppd?.enabled === true) {
+            const candidate: ITccSettings = { ...settings, stateMap: { ...settings.stateMap } };
+            for (const state of newProfileStateAssignments) {
+                if (state === ProfileStates.AC) {
+                    candidate.stateMap.power_ac = this.viewProfile.id;
+                } else if (state === ProfileStates.BAT) {
+                    candidate.stateMap.power_bat = this.viewProfile.id;
+                }
+            }
+            const catalog: ITccProfile[] = [...this.config.getAllProfiles()];
+            const catalogProfile: ITccProfile = { ...formProfileData, id: this.viewProfile.id };
+            const editedProfileIndex: number = catalog.findIndex(
+                (profile: ITccProfile): boolean => profile.id === this.viewProfile.id,
+            );
+            if (editedProfileIndex === -1) {
+                catalog.push(catalogProfile);
+            } else {
+                catalog[editedProfileIndex] = catalogProfile;
+            }
+            try {
+                PowerProfilesConfig.resolveCatalog(candidate, catalog);
+            } catch (error: unknown) {
+                const detail: string = error instanceof Error ? error.message : String(error);
+                this.powerProfilesAssignmentError = $localize`:@@ppdSettingsProfileAssignmentError:Enabled Power Profiles requires AC and battery assignments to use mapped profiles. Change assignments in Global settings → Power Profiles. ${detail}`;
+                return;
+            }
+        }
+
+        this.profileFormProgress = true;
+        this.utils.pageDisabled = true;
+        this.config
+            .writeProfile(this.viewProfile.id, formProfileData, newProfileStateAssignments)
+            .then((success: boolean): void => {
+                if (success) {
+                    this.profileFormGroup.markAsPristine();
+                    this.selectStateControl.markAsPristine();
+                    this.profile = formProfileData;
+                    this.state.initializeProfileNames();
+                }
+                this.profileFormProgress = false;
+                this.utils.pageDisabled = false;
+            });
     }
 
     public async discardFormInput(): Promise<void> {
+        this.powerProfilesAssignmentError = null;
         this.profileFormGroup.reset(this.viewProfile);
         this.selectStateControl.reset(this.state.getProfileStates(this.viewProfile.id));
         // Also restore brightness to active profile if applicable

@@ -147,6 +147,9 @@ along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
                                 </mat-grid-tile>
                                 <mat-grid-tile [colspan]="gridParams.undo"></mat-grid-tile>
                             </mat-grid-list>
+                            <p class="ppd-assignment-error" role="alert" *ngIf="powerProfilesAssignmentError">
+                                {{ powerProfilesAssignmentError }}
+                            </p>
                         </div>
                     </div>
                 </div>

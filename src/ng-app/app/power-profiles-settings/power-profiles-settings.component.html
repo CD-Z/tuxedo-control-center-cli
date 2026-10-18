@@ -1,0 +1,188 @@
+<!--
+Copyright (c) 2019-2026 TUXEDO Computers GmbH <tux@tuxedocomputers.com>
+
+This file is part of TUXEDO Control Center.
+
+TUXEDO Control Center is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+TUXEDO Control Center is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
+-->
+<section class="power-profiles-settings">
+    <p class="intro" i18n="@@ppdSettingsExplanation">
+        Power Profiles lets desktop power-mode controls select TCC profiles. It requires the provider-enabled daemon and its policies. This panel does not start services or remove another power-profile provider.
+    </p>
+
+    <mat-checkbox color="primary" [checked]="draftPpd.enabled" [disabled]="isSaving" (change)="setEnabled($event.checked)" i18n="@@ppdSettingsEnabled">
+        Enabled
+    </mat-checkbox>
+
+    <div class="mapping-grid">
+        <mat-form-field appearance="outline">
+            <mat-label i18n="@@ppdSettingsPowerSaver">Power saver</mat-label>
+            <mat-select
+                [value]="selectedMapping('power-saver')"
+                [compareWith]="compareMappingChoice"
+                [disabled]="isSaving"
+                (selectionChange)="setMapping('power-saver', $event.value)">
+                <mat-option [value]="automaticChoice" i18n="@@ppdSettingsAutomaticOption">Automatic (default)</mat-option>
+                <mat-option *ngFor="let option of mappingOptions['power-saver']" [value]="option">
+                    <ng-container *ngIf="option.unavailable" i18n="@@ppdSettingsUnavailableSavedProfile">Unavailable saved profile</ng-container>
+                    <ng-container *ngIf="!option.unavailable">{{ option.profile?.name || option.id }}</ng-container>
+                    [{{ option.id }}]
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+            <mat-label i18n="@@ppdSettingsBalanced">Balanced</mat-label>
+            <mat-select
+                [value]="selectedMapping('balanced')"
+                [compareWith]="compareMappingChoice"
+                [disabled]="isSaving"
+                (selectionChange)="setMapping('balanced', $event.value)">
+                <mat-option [value]="automaticChoice" i18n="@@ppdSettingsAutomaticOption">Automatic (default)</mat-option>
+                <mat-option *ngFor="let option of mappingOptions.balanced" [value]="option">
+                    <ng-container *ngIf="option.unavailable" i18n="@@ppdSettingsUnavailableSavedProfile">Unavailable saved profile</ng-container>
+                    <ng-container *ngIf="!option.unavailable">{{ option.profile?.name || option.id }}</ng-container>
+                    [{{ option.id }}]
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+            <mat-label i18n="@@ppdSettingsPerformance">Performance</mat-label>
+            <mat-select
+                [value]="selectedMapping('performance')"
+                [compareWith]="compareMappingChoice"
+                [disabled]="isSaving"
+                (selectionChange)="setMapping('performance', $event.value)">
+                <mat-option [value]="automaticChoice" i18n="@@ppdSettingsAutomaticOption">Automatic (default)</mat-option>
+                <mat-option *ngFor="let option of mappingOptions.performance" [value]="option">
+                    <ng-container *ngIf="option.unavailable" i18n="@@ppdSettingsUnavailableSavedProfile">Unavailable saved profile</ng-container>
+                    <ng-container *ngIf="!option.unavailable">{{ option.profile?.name || option.id }}</ng-container>
+                    [{{ option.id }}]
+                </mat-option>
+                <mat-option [value]="noneChoice" i18n="@@ppdSettingsNoneOption">None</mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
+
+    <div class="assignment-grid">
+        <mat-form-field appearance="outline">
+            <mat-label i18n="@@ppdSettingsAcAssignment">AC profile assignment</mat-label>
+            <mat-select [value]="draftAssignments.power_ac" [disabled]="isSaving" (selectionChange)="setAssignment('power_ac', $event.value)">
+                <mat-option *ngFor="let option of assignmentOptions.power_ac" [value]="option.id" [disabled]="option.invalid">
+                    <ng-container *ngIf="option.missing" i18n="@@ppdSettingsUnavailableAssignment">Unavailable saved assignment</ng-container>
+                    <ng-container *ngIf="!option.missing">{{ option.profile?.name || option.id }}</ng-container>
+                    [{{ option.id }}]
+                    <span *ngIf="option.invalid" i18n="@@ppdSettingsNotMappedOption">(not mapped)</span>
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+            <mat-label i18n="@@ppdSettingsBatteryAssignment">Battery profile assignment</mat-label>
+            <mat-select [value]="draftAssignments.power_bat" [disabled]="isSaving" (selectionChange)="setAssignment('power_bat', $event.value)">
+                <mat-option *ngFor="let option of assignmentOptions.power_bat" [value]="option.id" [disabled]="option.invalid">
+                    <ng-container *ngIf="option.missing" i18n="@@ppdSettingsUnavailableAssignment">Unavailable saved assignment</ng-container>
+                    <ng-container *ngIf="!option.missing">{{ option.profile?.name || option.id }}</ng-container>
+                    [{{ option.id }}]
+                    <span *ngIf="option.invalid" i18n="@@ppdSettingsNotMappedOption">(not mapped)</span>
+                </mat-option>
+            </mat-select>
+        </mat-form-field>
+    </div>
+
+    <div class="validation-message" role="alert" *ngIf="draftPpd.enabled && validationError !== null">
+        <span i18n="@@ppdSettingsValidationPrefix">Power Profiles settings are invalid:</span>
+        {{ validationError }}
+    </div>
+    <div class="validation-message" role="alert" *ngIf="invalidAssignments.power_ac || invalidAssignments.power_bat" i18n="@@ppdSettingsAssignmentInvalid">
+        An AC or battery assignment is not in the resolved Power Profiles mappings. Choose a mapped profile to continue.
+    </div>
+
+    <section class="status-panel" aria-live="polite">
+        <div class="saved-status">
+            <strong i18n="@@ppdSettingsSavedSettingLabel">Saved provider setting:</strong>
+            <span *ngIf="savedEnabled" i18n="@@ppdSettingsEnabledStatus">Enabled</span>
+            <span *ngIf="!savedEnabled" i18n="@@ppdSettingsDisabledStatus">Disabled</span>
+        </div>
+
+        <div class="runtime-header">
+            <h3 i18n="@@ppdSettingsRuntimeStatusTitle">Runtime status</h3>
+            <button type="button" mat-button color="primary" [disabled]="isSaving" (click)="refreshRuntimeState()" i18n="@@ppdSettingsRefreshRuntimeButton">
+                Refresh
+            </button>
+        </div>
+        <div class="runtime-loading" *ngIf="runtimeLoading">
+            <mat-spinner diameter="20"></mat-spinner>
+            <span i18n="@@ppdSettingsRuntimeLoading">Checking runtime status…</span>
+        </div>
+        <div class="runtime-error" *ngIf="runtimeUnavailable" i18n="@@ppdSettingsRuntimeUnavailable">
+            Power Profiles runtime status is unavailable.
+        </div>
+        <div class="runtime-state" *ngIf="runtimeState?.state === 'active'">
+            <span i18n="@@ppdSettingsRuntimeActiveLabel">Active standard mode:</span>
+            <strong [ngSwitch]="runtimeState.activeProfile">
+                <span *ngSwitchCase="'power-saver'" i18n="@@ppdSettingsRuntimePowerSaver">Power saver</span>
+                <span *ngSwitchCase="'balanced'" i18n="@@ppdSettingsRuntimeBalanced">Balanced</span>
+                <span *ngSwitchCase="'performance'" i18n="@@ppdSettingsRuntimePerformance">Performance</span>
+            </strong>
+        </div>
+        <div class="runtime-state" *ngIf="runtimeState?.state === 'inactive'" i18n="@@ppdSettingsRuntimeInactive">
+            No power-profile provider is active.
+        </div>
+        <div class="runtime-conflict" *ngIf="runtimeState?.state === 'other-provider'">
+            <p i18n="@@ppdSettingsRuntimeOtherProvider">Another power-profile provider owns the interface.</p>
+            <dl>
+                <dt i18n="@@ppdSettingsRuntimeOwnerLabel">Owner</dt>
+                <dd>{{ runtimeState.owner }}</dd>
+                <ng-container *ngIf="runtimeState.pid !== undefined">
+                    <dt i18n="@@ppdSettingsRuntimePidLabel">PID</dt>
+                    <dd>{{ runtimeState.pid }}</dd>
+                </ng-container>
+                <dt i18n="@@ppdSettingsRuntimeUnitLabel">Unit</dt>
+                <dd *ngIf="runtimeState.unit !== undefined">{{ runtimeState.unit }}</dd>
+                <dd *ngIf="runtimeState.unit === undefined" i18n="@@ppdSettingsRuntimeUnitUnavailable">Unavailable</dd>
+            </dl>
+        </div>
+        <div class="runtime-warning" *ngIf="savedEnabled && runtimeState !== undefined && runtimeState.state !== 'active'" i18n="@@ppdSettingsProviderNotActiveWarning">
+            Settings remain saved, but the TCC Power Profiles provider is not active.
+        </div>
+        <div class="runtime-warning" *ngIf="!savedEnabled && runtimeState?.state === 'active'" i18n="@@ppdSettingsProviderActiveWhileDisabledWarning">
+            A power-profile provider is active while the TCC provider is disabled.
+        </div>
+    </section>
+
+    <div class="operation-message success-message" role="status" *ngIf="saveStatus === 'saved'" i18n="@@ppdSettingsSaveSuccess">
+        Power Profiles settings were saved and adopted.
+    </div>
+    <div class="operation-message error-message" role="alert" *ngIf="saveStatus === 'save-failed'" i18n="@@ppdSettingsSaveFailure">
+        Power Profiles settings could not be saved. Authentication may have been cancelled or the daemon rejected the configuration.
+    </div>
+    <div class="operation-message error-message" role="alert" *ngIf="saveStatus === 'adoption-mismatch'" i18n="@@ppdSettingsAdoptionMismatch">
+        Settings were written, but the daemon did not adopt the requested Power Profiles configuration.
+    </div>
+    <div class="operation-message error-message" role="alert" *ngIf="saveStatus === 'adoption-unverified'" i18n="@@ppdSettingsAdoptionUnverified">
+        Settings were written, but adoption could not be verified.
+    </div>
+
+    <div class="actions">
+        <button type="button" mat-raised-button color="primary" [disabled]="isSaving || !isDirty" (click)="apply()">
+            <span *ngIf="!isSaving" i18n="@@ppdSettingsApplyButton">Apply</span>
+            <span *ngIf="isSaving" i18n="@@ppdSettingsSavingButton">Saving…</span>
+        </button>
+        <button type="button" mat-button [disabled]="isSaving || !isDirty" (click)="discard()" i18n="@@ppdSettingsDiscardButton">
+            Discard
+        </button>
+    </div>
+</section>

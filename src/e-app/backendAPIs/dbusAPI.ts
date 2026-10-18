@@ -19,11 +19,15 @@
 
 import type { ChargeType } from '../../common/classes/PowerSupplyController';
 import { DbusAPIFunctions } from '../../common/models/IDbusAPI';
+import type { PowerProfilesRuntimeState } from '../../common/models/PowerProfiles';
 import { TccDBusController } from '../../common/classes/TccDBusController';
 
 export const tccDBus = new TccDBusController();
 
 export const dbusHandlers: Map<string, (...args: any[]) => any> = new Map<string, (...args: any[]) => any>()
+    .set(DbusAPIFunctions.getPowerProfilesRuntimeState, (): Promise<PowerProfilesRuntimeState> => {
+        return tccDBus.getPowerProfilesRuntimeState();
+    })
     .set(DbusAPIFunctions.getVersion, (): Promise<string> => {
         return new Promise<string>(
             (resolve: (value: string | PromiseLike<string>) => void, _reject: (reason?: unknown) => void): void => {

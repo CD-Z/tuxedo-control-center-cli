@@ -206,6 +206,18 @@ along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
             <mat-expansion-panel>
                 <mat-expansion-panel-header>
                     <mat-panel-title>
+                        <mat-icon>bolt</mat-icon>
+                        <div class="panel-title" i18n="@@ppdSettingsTitle">Power Profiles</div>
+                    </mat-panel-title>
+                </mat-expansion-panel-header>
+                <div class="content">
+                    <app-power-profiles-settings></app-power-profiles-settings>
+                </div>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel>
+                <mat-expansion-panel-header>
+                    <mat-panel-title>
                         <mat-icon>
                             <svg viewBox="0 0 512 512">
                                 <use href="./assets/images/icon_theme.svg#Icon"></use>

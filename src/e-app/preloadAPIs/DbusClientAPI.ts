@@ -18,6 +18,7 @@
  */
 
 import type { ChargeType } from '../../common/classes/PowerSupplyController';
+import type { PowerProfilesRuntimeState } from '../../common/models/PowerProfiles';
 import { DbusAPIFunctions, dbusAPIHandle } from '../../common/models/IDbusAPI';
 
 const { ipcRenderer } = require('electron');
@@ -45,6 +46,13 @@ export const DbusClientAPI = {
         ipcRenderer.invoke(dbusAPIHandle, [DbusAPIFunctions.getDefaultProfilesJSON]),
     getDefaultValuesProfileJSON: (): Promise<string> =>
         ipcRenderer.invoke(dbusAPIHandle, [DbusAPIFunctions.getDefaultValuesProfileJSON]),
+    getPowerProfilesRuntimeState: async (): Promise<PowerProfilesRuntimeState> => {
+        const state = await ipcRenderer.invoke(dbusAPIHandle, [DbusAPIFunctions.getPowerProfilesRuntimeState]);
+        if (state === undefined) {
+            throw new Error('Power Profiles runtime state is unavailable.');
+        }
+        return state;
+    },
     getSettingsJSON: (): Promise<string> => ipcRenderer.invoke(dbusAPIHandle, [DbusAPIFunctions.getSettingsJSON]),
     odmProfilesAvailable: (): Promise<string[]> =>
         ipcRenderer.invoke(dbusAPIHandle, [DbusAPIFunctions.odmProfilesAvailable]),
@@ -133,6 +141,7 @@ export interface IDbusClientAPI {
     getCustomProfilesJSON: () => Promise<string>;
     getDefaultProfilesJSON: () => Promise<string>;
     getDefaultValuesProfileJSON: () => Promise<string>;
+    getPowerProfilesRuntimeState: () => Promise<PowerProfilesRuntimeState>;
     getSettingsJSON: () => Promise<string>;
     odmProfilesAvailable: () => Promise<string[]>;
     odmPowerLimitsJSON: () => Promise<string>;

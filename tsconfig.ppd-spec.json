@@ -1,0 +1,11 @@
+{
+    "extends": "./tsconfig.spec.json",
+    "files": [
+        "src/ng-app/process.ts",
+        "src/ng-app/app/power-profiles-settings/power-profiles-settings.component.spec.ts",
+        "src/ng-app/app/profile-details-edit/profile-details-edit.component.spec.ts",
+        "src/ng-app/app/tcc-dbus-client.service.spec.ts",
+        "src/ng-app/app/renderer.d.ts",
+    ],
+    "include": [],
+}

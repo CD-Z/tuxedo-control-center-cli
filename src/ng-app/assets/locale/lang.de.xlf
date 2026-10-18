@@ -1160,14 +1160,14 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="cGlobalSettingsCpuFrequencyDescription" datatype="html">
         <source>
-           On deactivate, CPU frequency control is 
+           On deactivate, CPU frequency control is
           <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>
           not
           <x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>
-           reset to default. Default settings need to be restored by hand or a system reboot. 
+           reset to default. Default settings need to be restored by hand or a system reboot.
         </source>
         <target phase-name="approval-1" state="new">
-          Beim Deaktivieren werden die CPU-Frequenzeinstellungen 
+          Beim Deaktivieren werden die CPU-Frequenzeinstellungen
           <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>
           nicht
           <x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>
@@ -1236,14 +1236,14 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="cGlobalSettingsKeyboardBacklightDescription" datatype="html">
         <source>
-           On deactivate, keyboard backlight settings are 
+           On deactivate, keyboard backlight settings are
           <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>
           not
           <x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>
-           reset to default. Default settings need to be restored by hand or a system reboot. 
+           reset to default. Default settings need to be restored by hand or a system reboot.
         </source>
         <target phase-name="approval-1" state="new">
-          Beim Deaktivieren werden die Tastaturbeleuchtungseinstellungen 
+          Beim Deaktivieren werden die Tastaturbeleuchtungseinstellungen
           <x id="START_TAG_STRONG" ctype="x-strong" equiv-text="&lt;strong&gt;"/>
           nicht
           <x id="CLOSE_TAG_STRONG" ctype="x-strong" equiv-text="&lt;/strong&gt;"/>
@@ -1328,15 +1328,15 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="cGlobalSettingsChromaSubsamplingYCbCr420WorkaroundLabel" datatype="html">
         <source>
-          Port 
+          Port
           <x id="INTERPOLATION" equiv-text="{{ port }}"/>
-           of Card 
+           of Card
           <x id="INTERPOLATION_1" equiv-text="{{ i }}"/>
         </source>
         <target phase-name="approval-1" state="new">
-            Port 
+            Port
           <x id="INTERPOLATION" equiv-text="{{port}}"/>
-           der Karte 
+           der Karte
           <x id="INTERPOLATION_1" equiv-text="{{i}}"/>
         </target>
         <context-group purpose="location">
@@ -1482,11 +1482,11 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="cShutdownTimerSetTime" datatype="html">
         <source>
-          Set shutdown time: 
+          Set shutdown time:
           <x id="INTERPOLATION" equiv-text="{{ appliedTime }}"/>
         </source>
         <target phase-name="approval-1" state="new">
-        Gesetzte Zeit zum Herunterfahren: 
+        Gesetzte Zeit zum Herunterfahren:
           <x id="INTERPOLATION" equiv-text="{{ appliedTime }}"/>
         </target>
         <context-group purpose="location">
@@ -3326,20 +3326,20 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="primeSelectIGpuDescription" datatype="html">
         <source>
-           Exclusively uses the graphics processor integrated in the main processor. Suitable for power saving and low graphics performance requirements. 
+           Exclusively uses the graphics processor integrated in the main processor. Suitable for power saving and low graphics performance requirements.
           <x id="LINE_BREAK" ctype="lb" equiv-text="&lt;br /&gt;"/>
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           Please note:
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt;"/>
-           Monitors connected to the high-performance graphics processor do not work in this mode. 
+           Monitors connected to the high-performance graphics processor do not work in this mode.
         </source>
         <target state="new">
-           Nutzt ausschließlich den im Hauptprozessor integrierten Grafikprozessor. Geeignet für Stromsparen und geringe Grafikleistungsanforderungen. 
+           Nutzt ausschließlich den im Hauptprozessor integrierten Grafikprozessor. Geeignet für Stromsparen und geringe Grafikleistungsanforderungen.
           <x id="LINE_BREAK" ctype="lb" equiv-text="&lt;br&gt;"/>
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           Bitte beachten:
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt; "/>
-           An den Hochleistungsgrafikprozessor angeschlossene Monitore funktionieren nicht in diesem Modus. 
+           An den Hochleistungsgrafikprozessor angeschlossene Monitore funktionieren nicht in diesem Modus.
         </target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/ng-app/app/prime-dialog/prime-dialog.component.html</context>
@@ -3600,21 +3600,21 @@ Handelsregisternummer HRB 27755
       </trans-unit>
       <trans-unit id="cryptNoEncryption" datatype="html">
         <source>
-           It looks like you are not using disk encryption. Disk encryption can only be enabled during installation of your system. If you want to use it, you have to reinstall your TUXEDO using 
+           It looks like you are not using disk encryption. Disk encryption can only be enabled during installation of your system. If you want to use it, you have to reinstall your TUXEDO using
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           WebFAI
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt;"/>
-          . On the operating system selection screen choose an option ending in &quot;crypt&quot;. 
+          . On the operating system selection screen choose an option ending in &quot;crypt&quot;.
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           Reinstalling your PC will wipe all data and programs stored on it!
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt;"/>
         </source>
         <target state="new">
-           Offenbar verwenden Sie keine Festplattenverschlüsselung. Die Festplattenverschlüsselung kann nur während der Installation Ihres Systems aktiviert werden. Wenn Sie die Festplattenverschlüsselung verwenden wollen, müssen Sie Ihr TUXEDO Book mit 
+           Offenbar verwenden Sie keine Festplattenverschlüsselung. Die Festplattenverschlüsselung kann nur während der Installation Ihres Systems aktiviert werden. Wenn Sie die Festplattenverschlüsselung verwenden wollen, müssen Sie Ihr TUXEDO Book mit
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           WebFAI
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt;"/>
-          neu installieren und bei der Betriebssystemauswahl eine Option wählen, die mit &quot;Crypt&quot; endet. 
+          neu installieren und bei der Betriebssystemauswahl eine Option wählen, die mit &quot;Crypt&quot; endet.
           <x id="START_BOLD_TEXT" ctype="x-b" equiv-text="&lt;b&gt;"/>
           Wenn Sie Ihr Notebook neu installieren, werden alle Daten und Programme darauf gelöscht!
           <x id="CLOSE_BOLD_TEXT" ctype="x-b" equiv-text="&lt;/b&gt;"/>
@@ -3893,6 +3893,300 @@ Handelsregisternummer HRB 27755
         <context-group purpose="location">
           <context context-type="sourcefile">src/ng-app/app/change-crypt-password/change-crypt-password.component.html</context>
           <context context-type="linenumber">79,84</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsTitle" datatype="html">
+        <source>Power Profiles</source>
+        <target state="translated">Power Profiles</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/global-settings/global-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsExplanation" datatype="html">
+        <source>Power Profiles lets desktop power-mode controls select TCC profiles. It requires the provider-enabled daemon and its policies. This panel does not start services or remove another power-profile provider.</source>
+        <target state="translated">Power Profiles ermöglicht Desktop-Energiemodus-Steuerungen, TCC-Profile auszuwählen. Dafür werden der aktivierte Power-Profiles-Daemon und dessen Richtlinien benötigt. Dieses Panel startet keine Dienste und entfernt keinen anderen Anbieter für Energieprofile.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsEnabled" datatype="html">
+        <source>Enabled</source>
+        <target state="translated">Aktiviert</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsPowerSaver" datatype="html">
+        <source>Power saver</source>
+        <target state="translated">Energiesparmodus</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAutomaticOption" datatype="html">
+        <source>Automatic (default)</source>
+        <target state="translated">Automatisch (Standard)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsUnavailableSavedProfile" datatype="html">
+        <source>Unavailable saved profile</source>
+        <target state="translated">Gespeichertes Profil nicht verfügbar</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsBalanced" datatype="html">
+        <source>Balanced</source>
+        <target state="translated">Ausgewogen</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsPerformance" datatype="html">
+        <source>Performance</source>
+        <target state="translated">Leistung</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsNoneOption" datatype="html">
+        <source>None</source>
+        <target state="translated">Keine</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAcAssignment" datatype="html">
+        <source>AC profile assignment</source>
+        <target state="translated">Profil für Netzbetrieb</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsUnavailableAssignment" datatype="html">
+        <source>Unavailable saved assignment</source>
+        <target state="translated">Gespeicherte Profilzuweisung nicht verfügbar</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsNotMappedOption" datatype="html">
+        <source>(not mapped)</source>
+        <target state="translated">(nicht zugeordnet)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsBatteryAssignment" datatype="html">
+        <source>Battery profile assignment</source>
+        <target state="translated">Profil für Akkubetrieb</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsValidationPrefix" datatype="html">
+        <source>Power Profiles settings are invalid:</source>
+        <target state="translated">Die Power-Profiles-Einstellungen sind ungültig:</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAssignmentInvalid" datatype="html">
+        <source>An AC or battery assignment is not in the resolved Power Profiles mappings. Choose a mapped profile to continue.</source>
+        <target state="translated">Eine Zuordnung für Netz- oder Akkubetrieb ist in den aufgelösten Power-Profiles-Zuordnungen nicht enthalten. Wählen Sie ein zugeordnetes Profil aus.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSavedSettingLabel" datatype="html">
+        <source>Saved provider setting:</source>
+        <target state="translated">Gespeicherte Anbietereinstellung:</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsEnabledStatus" datatype="html">
+        <source>Enabled</source>
+        <target state="translated">Aktiviert</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsDisabledStatus" datatype="html">
+        <source>Disabled</source>
+        <target state="translated">Deaktiviert</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeStatusTitle" datatype="html">
+        <source>Runtime status</source>
+        <target state="translated">Laufzeitstatus</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRefreshRuntimeButton" datatype="html">
+        <source>Refresh</source>
+        <target state="translated">Aktualisieren</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeLoading" datatype="html">
+        <source>Checking runtime status…</source>
+        <target state="translated">Laufzeitstatus wird geprüft…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnavailable" datatype="html">
+        <source>Power Profiles runtime status is unavailable.</source>
+        <target state="translated">Der Power-Profiles-Laufzeitstatus ist nicht verfügbar.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeActiveLabel" datatype="html">
+        <source>Active standard mode:</source>
+        <target state="translated">Aktiver Standardmodus:</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePowerSaver" datatype="html">
+        <source>Power saver</source>
+        <target state="translated">Energiesparmodus</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeBalanced" datatype="html">
+        <source>Balanced</source>
+        <target state="translated">Ausgewogen</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePerformance" datatype="html">
+        <source>Performance</source>
+        <target state="translated">Leistung</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeInactive" datatype="html">
+        <source>No power-profile provider is active.</source>
+        <target state="translated">Es ist kein Anbieter für Energieprofile aktiv.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeOtherProvider" datatype="html">
+        <source>Another power-profile provider owns the interface.</source>
+        <target state="translated">Ein anderer Anbieter für Energieprofile belegt die Schnittstelle.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeOwnerLabel" datatype="html">
+        <source>Owner</source>
+        <target state="translated">Eigentümer</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimePidLabel" datatype="html">
+        <source>PID</source>
+        <target state="translated">PID</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnitLabel" datatype="html">
+        <source>Unit</source>
+        <target state="translated">Unit</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsRuntimeUnitUnavailable" datatype="html">
+        <source>Unavailable</source>
+        <target state="translated">Nicht verfügbar</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsProviderNotActiveWarning" datatype="html">
+        <source>Settings remain saved, but the TCC Power Profiles provider is not active.</source>
+        <target state="translated">Die Einstellungen bleiben gespeichert, aber der TCC-Power-Profiles-Anbieter ist nicht aktiv.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsProviderActiveWhileDisabledWarning" datatype="html">
+        <source>A power-profile provider is active while the TCC provider is disabled.</source>
+        <target state="translated">Ein Anbieter für Energieprofile ist aktiv, obwohl der TCC-Anbieter deaktiviert ist.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSaveSuccess" datatype="html">
+        <source>Power Profiles settings were saved and adopted.</source>
+        <target state="translated">Die Power-Profiles-Einstellungen wurden gespeichert und übernommen.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSaveFailure" datatype="html">
+        <source>Power Profiles settings could not be saved. Authentication may have been cancelled or the daemon rejected the configuration.</source>
+        <target state="translated">Die Power-Profiles-Einstellungen konnten nicht gespeichert werden. Die Authentifizierung wurde möglicherweise abgebrochen oder der Daemon hat die Konfiguration abgelehnt.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAdoptionMismatch" datatype="html">
+        <source>Settings were written, but the daemon did not adopt the requested Power Profiles configuration.</source>
+        <target state="translated">Die Einstellungen wurden geschrieben, aber der Daemon hat die angeforderte Power-Profiles-Konfiguration nicht übernommen.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsAdoptionUnverified" datatype="html">
+        <source>Settings were written, but adoption could not be verified.</source>
+        <target state="translated">Die Einstellungen wurden geschrieben, aber die Übernahme konnte nicht überprüft werden.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsApplyButton" datatype="html">
+        <source>Apply</source>
+        <target state="translated">Anwenden</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsSavingButton" datatype="html">
+        <source>Saving…</source>
+        <target state="translated">Speichern…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsDiscardButton" datatype="html">
+        <source>Discard</source>
+        <target state="translated">Verwerfen</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/power-profiles-settings/power-profiles-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ppdSettingsProfileAssignmentError" datatype="html">
+        <source>Enabled Power Profiles requires AC and battery assignments to use mapped profiles. Change assignments in Global settings → Power Profiles. {$PH}</source>
+        <target state="translated">Bei aktivierten Power Profiles müssen Netz- und Akkuzuweisung auf zugeordneten Profilen liegen. Ändern Sie die Zuweisungen unter Globale Einstellungen → Power Profiles. {$PH}</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/ng-app/app/profile-details-edit/profile-details-edit.component.ts</context>
         </context-group>
       </trans-unit>
     </body>

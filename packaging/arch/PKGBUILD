@@ -1,7 +1,7 @@
 pkgbase=tuxedo-control-center-cli
-pkgname=('tuxedo-control-center-cli' 'tuxedo-control-center-cli-ppd')
+pkgname=('tuxedo-control-center-cli' 'tuxedo-control-center-cli-ppd' 'tuxedo-control-center-cli-ui')
 pkgver=3.0.11
-pkgrel=1
+pkgrel=2
 pkgdesc='Headless TUXEDO Control Center daemon and command-line client'
 arch=('x86_64')
 url='https://tuxedocomputers.com'
@@ -15,8 +15,11 @@ _runtime='/opt/tuxedo-control-center/resources/dist/tuxedo-control-center/data'
 
 build() {
     cd "${srcdir}/${pkgbase}-${pkgver}"
-    npm ci --ignore-scripts
-    npm run build-headless
+    npm ci
+    npm run build-prod
+    npm run build-cli
+    npm run esbuild-cli
+    npm run electron-builder -- dir
 }
 
 package_tuxedo-control-center-cli() {
@@ -50,4 +53,49 @@ package_tuxedo-control-center-cli-ppd() {
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.service' "${pkgdir}/usr/share/dbus-1/system-services/org.freedesktop.UPower.PowerProfiles.service"
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.conf' "${pkgdir}/usr/share/dbus-1/system.d/org.freedesktop.UPower.PowerProfiles.conf"
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.policy' "${pkgdir}/usr/share/polkit-1/actions/org.freedesktop.UPower.PowerProfiles.policy"
+}
+
+package_tuxedo-control-center-cli-ui() {
+    pkgdesc='Graphical TUXEDO Control Center application'
+    depends=(
+        "tuxedo-control-center-cli=${pkgver}-${pkgrel}"
+        'gtk3'
+        'nss'
+        'nspr'
+        'alsa-lib'
+        'libxss'
+        'libxtst'
+        'libdrm'
+        'libxkbcommon'
+        'mesa'
+        'libnotify'
+        'libsecret'
+        'at-spi2-core'
+        'libayatana-appindicator'
+        'xdg-utils'
+    )
+    optdepends=('tuxedo-control-center-cli-ppd: enable standard desktop power-mode integration')
+    options=('!strip')
+
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    local appdir="${srcdir}/${pkgbase}-${pkgver}/dist/packages/linux-unpacked"
+    [[ -x "${appdir}/tuxedo-control-center" ]]
+    [[ -f "${appdir}/resources/app.asar" ]]
+    [[ -f "${appdir}/chrome-sandbox" ]]
+    [[ ! -e "${appdir}/resources/dist/tuxedo-control-center/data/service" ]]
+    [[ ! -e "${appdir}/resources/dist/tuxedo-control-center/data/cli" ]]
+    [[ ! -e "${appdir}/resources/dist/tuxedo-control-center/data/camera" ]]
+
+    install -d "${pkgdir}/opt/tuxedo-control-center"
+    cp -a "${appdir}/." "${pkgdir}/opt/tuxedo-control-center/"
+    chmod 4755 "${pkgdir}/opt/tuxedo-control-center/chrome-sandbox"
+    install -d "${pkgdir}/usr/bin"
+    ln -s /opt/tuxedo-control-center/tuxedo-control-center "${pkgdir}/usr/bin/tuxedo-control-center"
+
+    install -Dm644 'src/dist-data/tuxedo-control-center.desktop' "${pkgdir}/usr/share/applications/tuxedo-control-center.desktop"
+    install -Dm644 'src/dist-data/tuxedo-control-center-tray.desktop' "${pkgdir}/etc/skel/.config/autostart/tuxedo-control-center-tray.desktop"
+    install -Dm644 'src/dist-data/tuxedo-control-center_256.png' "${pkgdir}/usr/share/icons/hicolor/256x256/apps/tuxedo-control-center.png"
+    install -Dm644 'src/dist-data/tuxedo-control-center_256.svg' "${pkgdir}/usr/share/icons/hicolor/scalable/apps/tuxedo-control-center.svg"
+    install -Dm644 'src/dist-data/com.tuxedocomputers.tcc.metainfo.xml' "${pkgdir}/usr/share/metainfo/com.tuxedocomputers.tcc.metainfo.xml"
+    install -Dm644 'src/dist-data/com.tuxedocomputers.tomte.policy' "${pkgdir}/usr/share/polkit-1/actions/com.tuxedocomputers.tomte.policy"
 }

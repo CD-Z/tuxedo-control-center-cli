@@ -8,7 +8,7 @@ import { DefaultProfileIDs, LegacyDefaultProfileIDs, type TUXEDODevice } from '.
 import type { ITccProfile } from '../models/TccProfile';
 import type { ITccSettings, ProfileStates } from '../models/TccSettings';
 import type { IPowerProfilesConfig, ResolvedPowerProfiles, StandardProfile } from '../models/PowerProfiles';
-import { ConfigHandler } from './ConfigHandler';
+import type { ConfigHandler } from './ConfigHandler';
 
 const supportedProfiles: readonly StandardProfile[] = ['power-saver', 'balanced', 'performance'];
 const validProfiles: Set<string> = new Set(supportedProfiles);
@@ -38,10 +38,7 @@ export class PowerProfilesConfig {
         return this.resolveCatalog(settings, config.getDefaultProfiles(device).concat(profiles));
     }
 
-    public static resolveCatalog(
-        settings: ITccSettings,
-        catalog: readonly ITccProfile[],
-    ): ResolvedPowerProfiles {
+    public static resolveCatalog(settings: ITccSettings, catalog: readonly ITccProfile[]): ResolvedPowerProfiles {
         if (!this.isEnabled(settings)) {
             return {};
         }

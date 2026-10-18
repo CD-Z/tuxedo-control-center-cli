@@ -33,6 +33,7 @@ export enum DbusAPIFunctions {
     getCustomProfilesJSON = 'getCustomProfilesJSON',
     getDefaultProfilesJSON = 'getDefaultProfilesJSON',
     getDefaultValuesProfileJSON = 'getDefaultValuesProfileJSON',
+    getPowerProfilesRuntimeState = 'getPowerProfilesRuntimeState',
     getSettingsJSON = 'getSettingsJSON',
     odmProfilesAvailable = 'odmProfilesAvailable',
     odmPowerLimitsJSON = 'odmPowerLimitsJSON',

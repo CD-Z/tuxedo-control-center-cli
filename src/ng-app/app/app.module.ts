@@ -63,6 +63,7 @@ import { AppRoutingModule } from './app-routing.module';
 import { AquarisControlComponent } from './aquaris-control/aquaris-control.component';
 import { ChangeCryptPasswordComponent } from './change-crypt-password/change-crypt-password.component';
 import { ChargingSettingsComponent } from './charging-settings/charging-settings.component';
+import { PowerProfilesSettingsComponent } from './power-profiles-settings/power-profiles-settings.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { DialogChoiceComponent } from './dialog-choice/dialog-choice.component';
 import { DialogConfirmComponent } from './dialog-confirm/dialog-confirm.component';
@@ -116,6 +117,7 @@ declare const require;
         DialogConfirmComponent,
         DialogChoiceComponent,
         ChargingSettingsComponent,
+        PowerProfilesSettingsComponent,
         WebcamSettingsComponent,
         WebcamPreviewComponent,
         TomteGuiComponent,

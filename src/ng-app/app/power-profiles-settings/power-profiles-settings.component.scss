@@ -1,0 +1,131 @@
+/*
+Copyright (c) 2019-2026 TUXEDO Computers GmbH <tux@tuxedocomputers.com>
+
+This file is part of TUXEDO Control Center.
+
+TUXEDO Control Center is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+TUXEDO Control Center is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with TUXEDO Control Center.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+.power-profiles-settings {
+    display: block;
+    width: 100%;
+
+    .intro {
+        margin: 0 0 1rem;
+        max-width: 76ch;
+    }
+
+    .mapping-grid,
+    .assignment-grid {
+        display: grid;
+        gap: 0.75rem 1rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 1rem;
+
+        mat-form-field {
+            min-width: 0;
+            width: 100%;
+        }
+    }
+
+    .assignment-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .validation-message,
+    .runtime-warning,
+    .runtime-error,
+    .operation-message {
+        margin-top: 0.75rem;
+        overflow-wrap: anywhere;
+    }
+
+    .validation-message,
+    .runtime-warning,
+    .runtime-error,
+    .error-message {
+        color: var(--mat-sys-error, #b3261e);
+    }
+
+    .success-message {
+        color: var(--mat-sys-primary, #2e7d32);
+    }
+
+    .status-panel {
+        border: 1px solid var(--mat-sys-outline-variant, #79747e);
+        border-radius: 0.5rem;
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+
+        h3 {
+            font-size: 1rem;
+            margin: 0;
+        }
+
+        dl {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            gap: 0.25rem 0.75rem;
+            margin: 0.5rem 0 0;
+        }
+
+        dd {
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    .runtime-header,
+    .runtime-loading,
+    .runtime-state,
+    .saved-status {
+        align-items: center;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .runtime-header {
+        justify-content: space-between;
+        margin-top: 0.75rem;
+    }
+
+    .runtime-loading {
+        margin-top: 0.5rem;
+    }
+
+    .runtime-conflict p {
+        margin: 0.5rem 0 0;
+    }
+
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1rem;
+    }
+}
+
+@media (max-width: 680px) {
+    .power-profiles-settings {
+        .mapping-grid,
+        .assignment-grid {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        .status-panel dl {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+}

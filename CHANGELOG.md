@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- Global settings controls for Power Profiles mappings, with provider runtime status
+- Optional Arch GUI split package built from a bundled Linux directory target
+
+### Fixed
+- Prevent saving profile-state assignments that conflict with enabled Power Profiles mappings
+
 ## [3.0.10] - 2026-09-16
 ### Added
 - Aquaris menu for Stellaris Gen8 Intel
