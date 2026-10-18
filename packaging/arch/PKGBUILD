@@ -11,11 +11,10 @@ makedepends=('base-devel' 'git' 'nodejs>=24' 'npm' 'python' 'systemd')
 source=("${pkgbase}-${pkgver}.tar.gz")
 sha256sums=('SKIP')
 
-_buildroot="${srcdir}/${pkgbase}-${pkgver}"
 _runtime='/opt/tuxedo-control-center/resources/dist/tuxedo-control-center/data'
 
 build() {
-    cd "${_buildroot}"
+    cd "${srcdir}/${pkgbase}-${pkgver}"
     npm ci --ignore-scripts
     npm run build-headless
 }
@@ -26,7 +25,7 @@ package_tuxedo-control-center-cli() {
     optdepends=('tuxedo-drivers-dkms: TUXEDO hardware support through tuxedo-io')
     conflicts=('tuxedo-control-center')
 
-    cd "${_buildroot}"
+    cd "${srcdir}/${pkgbase}-${pkgver}"
     install -Dm755 "dist/tuxedo-control-center/data/service/tccd" "${pkgdir}${_runtime}/service/tccd"
     install -Dm755 "dist/tuxedo-control-center/data/cli/tcc-cli.cjs" "${pkgdir}${_runtime}/cli/tcc-cli.cjs"
     install -Dm755 'packaging/arch/tcc-cli' "${pkgdir}/usr/bin/tcc-cli"
@@ -45,7 +44,7 @@ package_tuxedo-control-center-cli-ppd() {
     provides=('power-profiles-daemon')
     conflicts=('power-profiles-daemon' 'tlp-pd' 'tuned-ppd' 'tuxedo-power-profiles-adapter-git')
 
-    cd "${_buildroot}"
+    cd "${srcdir}/${pkgbase}-${pkgver}"
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.service' "${pkgdir}/usr/share/dbus-1/system-services/org.freedesktop.UPower.PowerProfiles.service"
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.conf' "${pkgdir}/usr/share/dbus-1/system.d/org.freedesktop.UPower.PowerProfiles.conf"
     install -Dm644 'src/dist-data/org.freedesktop.UPower.PowerProfiles.policy' "${pkgdir}/usr/share/polkit-1/actions/org.freedesktop.UPower.PowerProfiles.policy"
