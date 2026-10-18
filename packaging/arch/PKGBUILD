@@ -24,6 +24,8 @@ package_tuxedo-control-center-cli() {
     depends=('nodejs>=24' 'glibc' 'gcc-libs' 'systemd-libs' 'libxcrypt-compat' 'python' 'dbus' 'polkit' 'upower' 'systemd')
     optdepends=('tuxedo-drivers-dkms: TUXEDO hardware support through tuxedo-io')
     conflicts=('tuxedo-control-center' 'tuxedo-control-center-bin')
+    # Stripping removes the embedded payload from the pkg executable.
+    options=('!strip')
 
     cd "${srcdir}/${pkgbase}-${pkgver}"
     install -Dm755 "dist/tuxedo-control-center/data/service/tccd" "${pkgdir}${_runtime}/service/tccd"
